@@ -1,0 +1,10 @@
+---
+bindings:
+  - name:     "Deck"
+    resource: "/deckhand/v1/decks/{{ qs `d` `default` }}/"
+---
+{{ with $Page := firstByKey $.bindings.Deck.Pages "Name" (qs "p" "_") }}
+{{ with $Button := get $Page.Buttons (param 1) }}
+<pre>{{ jsonify $Button }}</pre>
+{{ end }}
+{{ end }}

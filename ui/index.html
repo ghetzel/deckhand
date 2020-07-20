@@ -1,0 +1,25 @@
+---
+bindings:
+  - name:     "Deck"
+    resource: "/deckhand/v1/decks/{{ qs `d` `default` }}/"
+---
+<div class="deck">
+  {{ range $Page := filterByKey $.bindings.Deck.Pages "Name" (qs "p" "_") }}
+  <table class="page">
+    <tbody>
+      {{ range $Row := sequence $.bindings.Deck.Rows }}
+      <tr>
+        {{ range $Col := sequence $.bindings.Deck.Cols }}
+        {{ with $Button := get $Page.Buttons (add (multiply $.bindings.Deck.Cols $Row) $Col) }}
+        <td><a
+          href="/edit/{{ $Button.Index }}?d={{ $.bindings.Deck.Name }}&p={{ $Page.Name }}"
+          style="background-color: {{ $Button.Fill }}; color: {{ $Button.Color }};"
+        >{{ $Button.Index }}</a></td>
+        {{ end }}
+        {{ end }}
+      </tr>
+      {{ end }}
+    </tbody>
+  </div>
+  {{ end }}
+</div>
