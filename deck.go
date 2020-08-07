@@ -1,6 +1,9 @@
 package main
 
+//go:generate esc -o static.go -pkg main -modtime 1500000000 -prefix ui ui
+
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -80,6 +83,16 @@ func (self *Deck) path(filename ...string) string {
 	return filepath.Join(append([]string{fileutil.MustExpandUser(DeckhandDir), self.Name}, filename...)...)
 }
 
+func (self *Deck) GetPage(name string) (*Page, bool) {
+	for _, page := range self.Pages {
+		if page.Name == name {
+			return page, true
+		}
+	}
+
+	return nil, false
+}
+
 func (self *Deck) CurrentPage() *Page {
 	var currentPage = `_`
 
@@ -87,13 +100,11 @@ func (self *Deck) CurrentPage() *Page {
 		currentPage = self.Page
 	}
 
-	for _, page := range self.Pages {
-		if page.Name == currentPage {
-			return page
-		}
+	if pg, ok := self.GetPage(currentPage); ok {
+		return pg
+	} else {
+		return nil
 	}
-
-	return nil
 }
 
 func (self *Deck) Render() error {
@@ -140,7 +151,7 @@ func (self *Deck) Sync() error {
 			}()
 
 			self.watcher.AddRecursive(self.path())
-			go self.watcher.Start(66 * time.Millisecond)
+			go self.watcher.Start(250 * time.Millisecond)
 		}
 
 		log.Debugf("deck %v: synced page=%v", self.Name, self.Page)
@@ -153,6 +164,18 @@ func (self *Deck) Sync() error {
 func (self *Deck) ListenAndServe(address string) error {
 	var server = diecast.NewServer(os.Getenv(`UI`))
 
+	if dcyml := self.path(`diecast.yml`); fileutil.IsNonemptyFile(dcyml) {
+		if err := server.LoadConfig(dcyml); err == nil {
+			log.Infof("loaded supplementary config: %v", dcyml)
+		} else {
+			return err
+		}
+	}
+
+	if server.RootPath == `` {
+		server.SetFileSystem(FS(false))
+	}
+
 	server.Get(`/deckhand/v1/`, func(w http.ResponseWriter, req *http.Request) {
 		httputil.RespondJSON(w, `ok`)
 	})
@@ -163,6 +186,38 @@ func (self *Deck) ListenAndServe(address string) error {
 
 	server.Get(`/deckhand/v1/decks/:deck/`, func(w http.ResponseWriter, req *http.Request) {
 		httputil.RespondJSON(w, self)
+	})
+
+	server.Get(`/deckhand/v1/decks/:deck/:page/:button/_render/`, func(w http.ResponseWriter, req *http.Request) {
+		var page = server.P(req, `page`).String()
+		var bidx = int(server.P(req, `button`).Int())
+
+		if pg, ok := self.GetPage(page); ok {
+			if btn, ok := pg.Buttons[bidx]; ok {
+				w.Header().Set(`Content-Type`, `image/png`)
+				btn.RenderTo(w)
+			} else {
+				httputil.RespondJSON(w, fmt.Errorf("no button %d", bidx), http.StatusNotFound)
+			}
+		} else {
+			httputil.RespondJSON(w, fmt.Errorf("no such page %q", page), http.StatusNotFound)
+		}
+	})
+
+	server.Get(`/deckhand/v1/decks/:deck/:page/:button/:property/`, func(w http.ResponseWriter, req *http.Request) {
+		var page = server.P(req, `page`).String()
+		var bidx = int(server.P(req, `button`).Int())
+		var prop = server.P(req, `property`).String()
+
+		if pg, ok := self.GetPage(page); ok {
+			if btn, ok := pg.Buttons[bidx]; ok {
+				btn.ServeProperty(w, req, prop)
+			} else {
+				httputil.RespondJSON(w, fmt.Errorf("no button %d", bidx), http.StatusNotFound)
+			}
+		} else {
+			httputil.RespondJSON(w, fmt.Errorf("no such page %q", page), http.StatusNotFound)
+		}
 	})
 
 	server.Post(`/deckhand/v1/decks/`, func(w http.ResponseWriter, req *http.Request) {

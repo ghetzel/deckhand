@@ -13,13 +13,19 @@ bindings:
         {{ with $Button := get $Page.Buttons (add (multiply $.bindings.Deck.Cols $Row) $Col) }}
         <td><a
           href="/edit/{{ $Button.Index }}?d={{ $.bindings.Deck.Name }}&p={{ $Page.Name }}"
-          style="background-color: {{ $Button.Fill }}; color: {{ $Button.Color }};"
-        >{{ $Button.Index }}</a></td>
+          style="
+            background-color: {{ $Button.Fill }};
+            {{ if $Button.Image }}
+            background-image: url({{ $Button.Image }});
+            background-size: contain;
+            {{ end }}
+          "
+        >{{ $Button.Text }}<span class="index">{{ $Button.Index }}</span></a></td>
         {{ end }}
         {{ end }}
       </tr>
       {{ end }}
     </tbody>
-  </div>
+  </table>
   {{ end }}
 </div>

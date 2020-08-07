@@ -5,6 +5,14 @@ bindings:
 ---
 {{ with $Page := firstByKey $.bindings.Deck.Pages "Name" (qs "p" "_") }}
 {{ with $Button := get $Page.Buttons (param 1) }}
-<pre>{{ jsonify $Button }}</pre>
+<div class="deck">
+  <form
+    action="/deckhand/v1/decks/"
+    class="page"
+    method="post"
+  >
+
+  </form>
+</div>
 {{ end }}
 {{ end }}

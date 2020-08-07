@@ -5,10 +5,11 @@ DECKHAND_BIN   ?= bin/deckhand
 .EXPORT_ALL_VARIABLES:
 GO111MODULE  = on
 
-all: deps build
+all: deps fmt build
 
 fmt:
 	gofmt -w $(LOCALS)
+	go generate ./...
 	go vet ./...
 	go mod tidy
 
@@ -20,6 +21,7 @@ test: fmt deps
 
 $(DECKHAND_BIN):
 	go build --ldflags '-extldflags "-static"' -ldflags '-s' -o $(DECKHAND_BIN) *.go
+	which deckhand && cp -v $(DECKHAND_BIN) $(shell which deckhand)
 
 build: $(DECKHAND_BIN)
 

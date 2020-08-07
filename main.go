@@ -59,8 +59,10 @@ func main() {
 
 		deck.Page = c.String(`page`)
 
-		for range time.NewTicker(66 * time.Millisecond).C {
-			deck.Render()
+		for range time.NewTicker(250 * time.Millisecond).C {
+			if err := deck.Render(); err != nil {
+				log.Warning(err)
+			}
 		}
 	}
 
