@@ -165,21 +165,21 @@ func (self *Button) regen() {
 		self.evaluatedAction = ``
 	}
 
-	if out, err := diecast.EvalInline(self.Text, nil, templateFunctions); err == nil {
-		self.evaluatedText = out
-	} else {
-		log.Errorf("tpl: text: %v", err)
-		self.evaluatedText = ``
-	}
-
 	if c, err := colorutil.Parse(self.Fill); err == nil {
 		ctx.SetFillColor(c.NativeRGBA())
 		ctx.SetStrokeColor(canvas.Transparent)
 		ctx.DrawPath(
 			0,
 			0,
-			canvas.Rectangle(self.visualArena.W, self.visualArena.H),
+			canvas.RoundedRectangle(self.visualArena.W, self.visualArena.H, self.visualArena.H*0.2),
 		)
+	}
+
+	if out, err := diecast.EvalInline(self.Text, nil, templateFunctions); err == nil {
+		self.evaluatedText = out
+	} else {
+		log.Errorf("tpl: text: %v", err)
+		self.evaluatedText = ``
 	}
 
 	if img := self.image; img != nil {
