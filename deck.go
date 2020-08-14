@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,12 +11,14 @@ import (
 	"time"
 
 	"github.com/ghetzel/diecast"
+	"github.com/ghetzel/go-defaults"
 	"github.com/ghetzel/go-stockutil/executil"
 	"github.com/ghetzel/go-stockutil/fileutil"
 	"github.com/ghetzel/go-stockutil/httputil"
 	"github.com/ghetzel/go-stockutil/log"
 	streamdeck "github.com/magicmonkey/go-streamdeck"
 	"github.com/radovskyb/watcher"
+	"gopkg.in/yaml.v2"
 )
 
 var DeckhandDir = executil.RootOrString(`/etc/deckhand`, `~/.config/deckhand`)
@@ -30,26 +31,63 @@ type UpdateDeckRequest struct {
 }
 
 type Deck struct {
-	Name    string
-	Page    string
-	Pages   []*Page
-	Rows    int
-	Cols    int
-	Count   int
-	device  *streamdeck.Device
-	watcher *watcher.Watcher
+	Name     string
+	Page     string           `yaml:"page" default:"default"`
+	Pages    map[string]*Page `yaml:"pages"`
+	Rows     int              `yaml:"rows"`
+	Cols     int              `yaml:"cols"`
+	Count    int              `yaml:"-"`
+	device   *streamdeck.Device
+	watcher  *watcher.Watcher
+	filename string
 }
 
-func NewDeck() (*Deck, error) {
+func LoadDeck(filename string) (*Deck, error) {
+	var deck = new(Deck)
+	deck.filename = filename
+	return deck, deck.load(filename)
+}
+
+func OpenDeck(filename string) (*Deck, error) {
+	if deck, err := LoadDeck(filename); err == nil {
+		return deck, deck.Open()
+	} else {
+		return nil, err
+	}
+}
+
+func (self *Deck) load(filename string) error {
+	filename = fileutil.MustExpandUser(filename)
+
+	if data, err := fileutil.ReadAll(filename); err == nil {
+		if err := yaml.Unmarshal(data, self); err == nil {
+			self.Name = strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
+
+			return nil
+		} else {
+			return err
+		}
+	} else {
+		return err
+	}
+}
+
+func (self *Deck) Filename() string {
+	return fileutil.MustExpandUser(self.filename)
+}
+
+func (self *Deck) Open() error {
 	if device, err := streamdeck.Open(); err == nil {
-		var deck = &Deck{
-			Name:   `default`,
-			device: device,
+		switch self.Name {
+		case ``, `default`:
+			self.Name = `default`
 		}
 
-		device.ButtonPress(func(i int, d *streamdeck.Device, err error) {
+		self.device = device
+
+		self.device.ButtonPress(func(i int, d *streamdeck.Device, err error) {
 			if err == nil {
-				if err := deck.trigger(i); err != nil {
+				if err := self.trigger(i); err != nil {
 					log.Errorf("btn[%d]: %v", i, err)
 				}
 			}
@@ -57,18 +95,56 @@ func NewDeck() (*Deck, error) {
 
 		switch strings.ToLower(device.GetName()) {
 		case `streamdeck (original v2)`:
-			deck.Rows = 3
-			deck.Cols = 5
+			self.Rows = 3
+			self.Cols = 5
 		}
 
-		deck.Count = (deck.Rows * deck.Cols)
+		self.Count = (self.Rows * self.Cols)
 
 		device.ClearButtons()
 
-		return deck, deck.Sync()
+		return self.Sync()
 	} else {
-		return nil, err
+		return err
 	}
+}
+
+func (self *Deck) Sync() error {
+	if err := self.load(self.filename); err != nil {
+		return err
+	}
+
+	defaults.SetDefaults(self)
+
+	for name, pg := range self.Pages {
+		pg.deck = self
+		pg.Name = name
+
+		if err := pg.Sync(); err != nil {
+			return fmt.Errorf("page %v: %v", name, err)
+		}
+	}
+
+	if self.watcher == nil {
+		self.watcher = watcher.New()
+		self.watcher.SetMaxEvents(1)
+
+		go func() {
+			for {
+				select {
+				case <-self.watcher.Event:
+					self.Sync()
+				case <-self.watcher.Closed:
+					return
+				}
+			}
+		}()
+
+		self.watcher.Add(self.Filename())
+		go self.watcher.Start(250 * time.Millisecond)
+	}
+
+	return nil
 }
 
 func (self *Deck) Close() error {
@@ -83,24 +159,14 @@ func (self *Deck) path(filename ...string) string {
 	return filepath.Join(append([]string{fileutil.MustExpandUser(DeckhandDir), self.Name}, filename...)...)
 }
 
-func (self *Deck) GetPage(name string) (*Page, bool) {
-	for _, page := range self.Pages {
-		if page.Name == name {
-			return page, true
-		}
-	}
-
-	return nil, false
-}
-
 func (self *Deck) CurrentPage() *Page {
-	var currentPage = `_`
+	var currentPage = `default`
 
 	if self.Page != `` {
 		currentPage = self.Page
 	}
 
-	if pg, ok := self.GetPage(currentPage); ok {
+	if pg, ok := self.Pages[currentPage]; ok {
 		return pg
 	} else {
 		return nil
@@ -112,52 +178,6 @@ func (self *Deck) Render() error {
 		return pg.Render()
 	} else {
 		return nil
-	}
-}
-
-func (self *Deck) Sync() error {
-	if pagedirs, err := ioutil.ReadDir(self.path()); err == nil {
-		var pages []*Page
-
-		for _, pagedir := range pagedirs {
-			if pagedir.IsDir() {
-				pages = append(pages, &Page{
-					Name: pagedir.Name(),
-					deck: self,
-				})
-			}
-		}
-
-		self.Pages = pages
-		var merr error
-
-		for _, page := range self.Pages {
-			log.AppendError(merr, page.Sync())
-		}
-
-		if self.watcher == nil {
-			self.watcher = watcher.New()
-			self.watcher.SetMaxEvents(1)
-
-			go func() {
-				for {
-					select {
-					case <-self.watcher.Event:
-						self.Sync()
-					case <-self.watcher.Closed:
-						return
-					}
-				}
-			}()
-
-			self.watcher.AddRecursive(self.path())
-			go self.watcher.Start(250 * time.Millisecond)
-		}
-
-		log.Debugf("deck %v: synced page=%v", self.Name, self.Page)
-		return merr
-	} else {
-		return err
 	}
 }
 
@@ -192,7 +212,7 @@ func (self *Deck) ListenAndServe(address string) error {
 		var page = server.P(req, `page`).String()
 		var bidx = int(server.P(req, `button`).Int())
 
-		if pg, ok := self.GetPage(page); ok {
+		if pg, ok := self.Pages[page]; ok {
 			if btn, ok := pg.Buttons[bidx]; ok {
 				w.Header().Set(`Content-Type`, `image/png`)
 				btn.RenderTo(w)
@@ -209,7 +229,7 @@ func (self *Deck) ListenAndServe(address string) error {
 		var bidx = int(server.P(req, `button`).Int())
 		var prop = server.P(req, `property`).String()
 
-		if pg, ok := self.GetPage(page); ok {
+		if pg, ok := self.Pages[page]; ok {
 			if btn, ok := pg.Buttons[bidx]; ok {
 				btn.ServeProperty(w, req, prop)
 			} else {

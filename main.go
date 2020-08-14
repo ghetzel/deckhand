@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/ghetzel/cli"
@@ -49,9 +50,11 @@ func main() {
 	app.Action = func(c *cli.Context) {
 		DeckhandDir = c.String(`config-root`)
 
-		var deck, err = NewDeck()
+		var deck, err = OpenDeck(filepath.Join(DeckhandDir, `default`, `deck.yaml`))
 		log.FatalIf(err)
 		defer deck.Close()
+
+		log.Infof("loaded deck %v", deck.Filename())
 
 		go func() {
 			log.FatalIf(deck.ListenAndServe(c.String(`address`)))
@@ -59,7 +62,7 @@ func main() {
 
 		deck.Page = c.String(`page`)
 
-		for range time.NewTicker(250 * time.Millisecond).C {
+		for range time.NewTicker(125 * time.Millisecond).C {
 			if err := deck.Render(); err != nil {
 				log.Warning(err)
 			}

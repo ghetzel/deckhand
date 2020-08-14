@@ -11,4 +11,5 @@ require (
 	github.com/radovskyb/watcher v1.0.7
 	github.com/tdewolff/canvas v0.0.0-20200724172439-782f5aeffdf8
 	google.golang.org/appengine v1.6.6 // indirect
+	gopkg.in/yaml.v2 v2.2.8
 )

@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/ghetzel/diecast"
@@ -18,7 +17,6 @@ import (
 	"github.com/ghetzel/go-stockutil/fileutil"
 	"github.com/ghetzel/go-stockutil/log"
 	"github.com/ghetzel/go-stockutil/stringutil"
-	"github.com/ghetzel/go-stockutil/typeutil"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/rasterizer"
 )
@@ -49,13 +47,14 @@ var templateFunctions = func() diecast.FuncMap {
 
 type Button struct {
 	Index           int
-	Fill            string  `default:"#000000"`
-	Color           string  `default:"#FFFFFF"`
-	FontName        string  `default:"monospace"`
-	FontSize        float64 `default:"64"`
-	Text            string
-	Action          string
-	State           string
+	Fill            string             `yaml:"fill"     default:"#000000"`
+	Color           string             `yaml:"color"    default:"#FFFFFF"`
+	FontName        string             `yaml:"fontName" default:"monospace"`
+	FontSize        float64            `yaml:"fontSize" default:"64"`
+	Text            string             `yaml:"text"`
+	Action          string             `yaml:"action"`
+	State           string             `yaml:"state"`
+	States          map[string]*Button `yaml:"states"`
 	auto            bool
 	evaluatedText   string
 	evaluatedAction string
@@ -64,6 +63,7 @@ type Button struct {
 	page            *Page
 	visualArena     *canvas.Canvas
 	fontFamily      *canvas.FontFamily
+	hasChanges      bool
 }
 
 func NewButton(page *Page, i int) *Button {
@@ -98,9 +98,9 @@ func (self *Button) ServeProperty(w http.ResponseWriter, req *http.Request, prop
 
 	switch propname {
 	case `fill`:
-		val = colorutil.MustParse(self.Fill).String()
+		val = self._fill().String()
 	case `color`:
-		val = colorutil.MustParse(self.Color).String()
+		val = self._color().String()
 	case `text`:
 		val = self.evaluatedText
 	case `action`:
@@ -122,20 +122,6 @@ func (self *Button) ServeProperty(w http.ResponseWriter, req *http.Request, prop
 	w.Write([]byte(val))
 }
 
-func (self *Button) path(filename ...string) string {
-	var parts []string
-
-	parts = append(parts, fmt.Sprintf("%02d", self.Index))
-
-	if self.evaluatedState != `` {
-		if candidate := self.page.path(append(parts, self.evaluatedState)...); fileutil.DirExists(candidate) {
-			parts = append(parts, self.evaluatedState)
-		}
-	}
-
-	return self.page.path(append(parts, filename...)...)
-}
-
 func (self *Button) isReady() bool {
 	if self.page == nil {
 		return false
@@ -152,60 +138,181 @@ func (self *Button) isReady() bool {
 	return true
 }
 
+func (self *Button) _action() string {
+	var v string
+
+	if self.Action != `` {
+		v = self.Action
+	} else if inherit := self.page.Defaults; inherit != nil {
+		v = inherit.Action
+	}
+
+	if out, err := diecast.EvalInline(v, nil, templateFunctions); err == nil {
+		return out
+	} else {
+		log.Errorf("tpl: action: %v", err)
+		return self.evaluatedAction
+	}
+}
+
+func (self *Button) _text() string {
+	var v string
+
+	if self.Text != `` {
+		v = self.Text
+	} else if inherit := self.page.Defaults; inherit != nil {
+		v = inherit.Text
+	}
+
+	if out, err := diecast.EvalInline(v, nil, templateFunctions); err == nil {
+		return out
+	} else {
+		log.Errorf("tpl: text: %v", err)
+		return self.evaluatedText
+	}
+}
+
+func (self *Button) _state() string {
+	var v string
+
+	if self.State != `` {
+		v = self.State
+	} else if inherit := self.page.Defaults; inherit != nil {
+		v = inherit.State
+	}
+
+	if out, err := diecast.EvalInline(v, nil, templateFunctions); err == nil {
+		return out
+	} else {
+		log.Errorf("tpl: state: %v", err)
+		return self.evaluatedState
+	}
+}
+
+func (self *Button) _fill() colorutil.Color {
+	var v string
+
+	if self.Fill != `` {
+		v = self.Fill
+	} else if inherit := self.page.Defaults; inherit != nil {
+		v = inherit.Fill
+	}
+
+	if c, err := colorutil.Parse(v); err == nil {
+		return c
+	} else {
+		return colorutil.MustParse(`#000000`)
+	}
+}
+
+func (self *Button) _color() colorutil.Color {
+	var v string
+
+	if self.Color != `` {
+		v = self.Color
+	} else if inherit := self.page.Defaults; inherit != nil {
+		v = inherit.Color
+	}
+
+	if c, err := colorutil.Parse(v); err == nil {
+		return c
+	} else {
+		return colorutil.MustParse(`#FFFFFF`)
+	}
+}
+
+func (self *Button) _fontName() string {
+	if self.FontName != `` {
+		return self.FontName
+	} else if inherit := self.page.Defaults; inherit != nil && inherit.FontName != `` {
+		return inherit.FontName
+	} else {
+		return `monospace`
+	}
+}
+
+func (self *Button) _fontSize() float64 {
+	if self.FontSize > 0 {
+		return self.FontSize
+	} else if inherit := self.page.Defaults; inherit != nil && inherit.FontSize > 0 {
+		return inherit.FontSize
+	} else {
+		return 64
+	}
+}
+
 // Uses the existing values that have already been parsed from the various files and evaluates them.
 func (self *Button) regen() {
 	self.visualArena = canvas.New(72, 72)
 
+	if v := self._action(); v != self.evaluatedAction || self.evaluatedAction == `` {
+		self.evaluatedAction = v
+		self.hasChanges = true
+	}
+
+	if v := self._text(); v != self.evaluatedText || self.evaluatedText == `` {
+		self.evaluatedText = v
+		self.hasChanges = true
+	}
+
+	if v := self._state(); v != self.evaluatedState || self.evaluatedState == `` {
+		self.evaluatedState = v
+		self.hasChanges = true
+	}
+
+	// if !self.hasChanges {
+	// 	return
+	// }
+
 	var ctx = canvas.NewContext(self.visualArena)
 
-	if out, err := diecast.EvalInline(self.Action, nil, templateFunctions); err == nil {
-		self.evaluatedAction = out
-	} else {
-		log.Errorf("tpl: action: %v", err)
-		self.evaluatedAction = ``
-	}
-
-	if c, err := colorutil.Parse(self.Fill); err == nil {
-		ctx.SetFillColor(c.NativeRGBA())
-		ctx.SetStrokeColor(canvas.Transparent)
-		ctx.DrawPath(
-			0,
-			0,
-			canvas.RoundedRectangle(self.visualArena.W, self.visualArena.H, self.visualArena.H*0.2),
-		)
-	}
-
-	if out, err := diecast.EvalInline(self.Text, nil, templateFunctions); err == nil {
-		self.evaluatedText = out
-	} else {
-		log.Errorf("tpl: text: %v", err)
-		self.evaluatedText = ``
-	}
+	ctx.SetFillColor(self._fill().NativeRGBA())
+	ctx.SetStrokeColor(canvas.Transparent)
+	ctx.DrawPath(
+		0,
+		0,
+		canvas.RoundedRectangle(self.visualArena.W, self.visualArena.H, self.visualArena.H*0.2),
+	)
 
 	if img := self.image; img != nil {
 		ctx.DrawImage(0, 0, img, 1)
 	}
 
-	if self.fontFamily == nil && self.FontName != `` {
+	if fontName := self._fontName(); self.fontFamily == nil && fontName != `` {
 		var font = canvas.NewFontFamily(`text`)
 
-		if fileutil.FileExists(self.FontName) {
-			if err := font.LoadFontFile(self.FontName, canvas.FontRegular); err == nil {
+		if fileutil.FileExists(fontName) {
+			if err := font.LoadFontFile(fontName, canvas.FontRegular); err == nil {
 				self.fontFamily = font
 			}
-		} else if err := font.LoadLocalFont(self.FontName, canvas.FontRegular); err == nil {
+		} else if err := font.LoadLocalFont(fontName, canvas.FontRegular); err == nil {
 			self.fontFamily = font
 		}
 	}
 
 	if self.fontFamily != nil {
-		if c, err := colorutil.Parse(self.Color); err == nil {
-			var face = self.fontFamily.Face(self.FontSize, c.NativeRGBA(), canvas.FontRegular, canvas.FontNormal)
-			var text = canvas.NewTextBox(face, self.evaluatedText, ctx.Width(), ctx.Height(), canvas.Center, canvas.Center, 0, 0)
+		var face = self.fontFamily.Face(
+			self._fontSize(),
+			self._color().NativeRGBA(),
+			canvas.FontRegular,
+			canvas.FontNormal,
+		)
 
-			ctx.DrawText(0, ctx.Height(), text)
-		}
+		var text = canvas.NewTextBox(
+			face,
+			self.evaluatedText,
+			ctx.Width(),
+			ctx.Height(),
+			canvas.Center,
+			canvas.Center,
+			0,
+			0,
+		)
+
+		ctx.DrawText(0, ctx.Height(), text)
 	}
+
+	self.hasChanges = false
 }
 
 func (self *Button) SetImage(filename string) error {
@@ -252,124 +359,20 @@ func (self *Button) Render() error {
 	return nil
 }
 
-func (self *Button) syncState() {
-	if data, err := fileutil.ReadFirstLine(self.path(`state`)); err == nil {
-		self.State = strings.TrimSpace(data)
-	} else {
-		self.State = ``
-	}
-
-	if out, err := diecast.EvalInline(self.State, nil, templateFunctions); err == nil {
-		out = strings.TrimSpace(out)
-
-		self.evaluatedState = out
-		log.Debugf("button %02d: state=%v", self.Index, self.evaluatedState)
-	} else {
-		log.Errorf("tpl: state: %v", err)
-		self.evaluatedState = ``
-	}
-}
-
 func (self *Button) Sync() error {
-	self.syncState()
+	defaults.SetDefaults(self)
+	self.hasChanges = true
+	self.regen()
 
-	defer func() {
-		defaults.SetDefaults(self)
+	log.Debugf("%02d| % 6s: %s", self.Index, `state`, self.evaluatedState)
+	log.Debugf("%02d| % 6s: %s", self.Index, `text`, self.evaluatedText)
+	log.Debugf("%02d| % 6s: %s", self.Index, `action`, self.evaluatedAction)
+	log.Debugf("%02d| % 6s: %v", self.Index, `fill`, self._fill())
+	log.Debugf("%02d| % 6s: %v", self.Index, `color`, self._color())
+	log.Debugf("%02d| % 6s: %s (%vpt)", self.Index, `font`, self._fontName(), self._fontSize())
+	// log.Debugf("%02d| % 6s: %v", self.Index, `image`, self.image)
 
-		log.Debugf("  % 8s: %s", `state`, self.State)
-		log.Debugf("  % 8s: %s", `text`, self.Text)
-		log.Debugf("  % 8s: %s", `action`, self.Action)
-		log.Debugf("  % 8s: %s", `fill`, self.Fill)
-		log.Debugf("  % 8s: %s", `color`, self.Color)
-		log.Debugf("  % 8s: %v", `image`, self.image)
-		log.Debugf("  % 8s: %s (%vpt)", `font`, self.FontName, self.FontSize)
-
-		self.regen()
-	}()
-
-	var px = filepath.Join(self.path(`*`))
-
-	if matches, err := filepath.Glob(px); err == nil {
-		self.image = nil
-		self.Color = ``
-		self.Fill = ``
-		self.Text = ``
-		self.Action = ``
-		self.FontName = ``
-		self.FontSize = 0
-		defaults.SetDefaults(self)
-
-		log.Debugf("button %02d [%s]:", self.Index, self.path())
-
-		for _, b := range matches {
-			if !fileutil.IsNonemptyFile(b) {
-				continue
-			}
-
-			var base = strings.ToLower(filepath.Base(b))
-			var _, prop = stringutil.SplitPairTrailing(base, `_`)
-
-			switch prop {
-			case `color`:
-
-				if data, err := fileutil.ReadFirstLine(b); err == nil {
-					if v := strings.TrimSpace(data); v != `` {
-						self.Color = v
-					}
-				}
-
-			case `fill`:
-				if data, err := fileutil.ReadFirstLine(b); err == nil {
-					if v := strings.TrimSpace(data); v != `` {
-						self.Fill = v
-					}
-				}
-
-			case `text`:
-				if data, err := fileutil.ReadAllString(b); err == nil {
-					self.Text = strings.TrimSpace(data)
-				}
-
-			case `action`:
-				if data, err := fileutil.ReadFirstLine(b); err == nil {
-					self.Action = strings.TrimSpace(data)
-				}
-
-			case `font`:
-				if data, err := fileutil.ReadFirstLine(b); err == nil {
-					for i, val := range strings.Split(data, `:`) {
-						val = strings.TrimSpace(val)
-
-						if val != `` {
-							switch i {
-							case 0:
-								self.FontName = val
-								self.fontFamily = nil
-							case 1:
-								if sz := typeutil.Float(val); sz > 0 {
-									self.FontSize = sz
-								}
-							}
-						}
-					}
-				}
-
-			case `image`:
-				if err := self.SetImage(b); err != nil {
-					return err
-				}
-
-			default:
-				if fileutil.IsNonemptyExecutableFile(b) {
-					self.Action = b
-				}
-			}
-		}
-
-		return nil
-	} else {
-		return err
-	}
+	return nil
 }
 
 func (self *Button) Trigger() error {
