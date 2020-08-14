@@ -16,7 +16,9 @@ type Page struct {
 func (self *Page) Render() error {
 	var merr error
 
-	for _, btn := range self.Buttons {
+	for i, btn := range self.Buttons {
+		btn.page = self
+		btn.Index = i
 		log.AppendError(merr, btn.Render())
 	}
 
@@ -30,20 +32,11 @@ func (self *Page) Sync() error {
 
 	var merr error
 
-	for _, btn := range self.Buttons {
+	for i, btn := range self.Buttons {
 		btn.page = self
+		btn.Index = i
 		log.AppendError(merr, btn.Sync())
 	}
-
-	// for i := 0; i < self.deck.Count; i++ {
-	// 	if btn, ok := self.Buttons[i]; ok {
-	// 		log.AppendError(merr, btn.Sync())
-	// 	} else {
-	// 		self.Buttons[i] = NewButton(self, i)
-	// 		self.Buttons[i].auto = true
-	// 		self.Buttons[i].Render()
-	// 	}
-	// }
 
 	return merr
 }

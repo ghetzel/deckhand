@@ -32,7 +32,7 @@ type UpdateDeckRequest struct {
 
 type Deck struct {
 	Name     string
-	Page     string           `yaml:"page" default:"default"`
+	Page     string           `yaml:"-" default:"default"`
 	Pages    map[string]*Page `yaml:"pages"`
 	Rows     int              `yaml:"rows"`
 	Cols     int              `yaml:"cols"`

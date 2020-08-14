@@ -16,7 +16,9 @@ import (
 	"github.com/ghetzel/go-stockutil/executil"
 	"github.com/ghetzel/go-stockutil/fileutil"
 	"github.com/ghetzel/go-stockutil/log"
+	"github.com/ghetzel/go-stockutil/maputil"
 	"github.com/ghetzel/go-stockutil/stringutil"
+	"github.com/ghetzel/go-stockutil/typeutil"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/rasterizer"
 )
@@ -98,9 +100,9 @@ func (self *Button) ServeProperty(w http.ResponseWriter, req *http.Request, prop
 
 	switch propname {
 	case `fill`:
-		val = self._fill().String()
+		val = self._property(`Fill`).String()
 	case `color`:
-		val = self._color().String()
+		val = self._property(`Color`).String()
 	case `text`:
 		val = self.evaluatedText
 	case `action`:
@@ -138,106 +140,34 @@ func (self *Button) isReady() bool {
 	return true
 }
 
-func (self *Button) _action() string {
-	var v string
+func (self *Button) _property(name string) typeutil.Variant {
+	var value = typeutil.V(nil)
+	var strct = maputil.M(self)
 
-	if self.Action != `` {
-		v = self.Action
-	} else if inherit := self.page.Defaults; inherit != nil {
-		v = inherit.Action
+	if name != `State` {
+		if state, ok := self.States[self.evaluatedState]; ok && state != nil {
+			if stateSpecificValue := state._property(name); !stateSpecificValue.IsNil() {
+				return stateSpecificValue
+			}
+		}
 	}
 
-	if out, err := diecast.EvalInline(v, nil, templateFunctions); err == nil {
-		return out
+	if v := strct.Get(name); !v.IsZero() {
+		value = v
+	} else if self.page != nil {
+		if inherit := self.page.Defaults; inherit != nil {
+			return inherit._property(name)
+		}
+	}
+
+	if vS := value.String(); strings.Contains(vS, `{{`) && strings.Contains(vS, `}}`) {
+		if out, err := diecast.EvalInline(value.String(), nil, templateFunctions); err == nil {
+			return typeutil.V(out)
+		} else {
+			return maputil.M(self).Get(`evaluated` + name)
+		}
 	} else {
-		log.Errorf("tpl: action: %v", err)
-		return self.evaluatedAction
-	}
-}
-
-func (self *Button) _text() string {
-	var v string
-
-	if self.Text != `` {
-		v = self.Text
-	} else if inherit := self.page.Defaults; inherit != nil {
-		v = inherit.Text
-	}
-
-	if out, err := diecast.EvalInline(v, nil, templateFunctions); err == nil {
-		return out
-	} else {
-		log.Errorf("tpl: text: %v", err)
-		return self.evaluatedText
-	}
-}
-
-func (self *Button) _state() string {
-	var v string
-
-	if self.State != `` {
-		v = self.State
-	} else if inherit := self.page.Defaults; inherit != nil {
-		v = inherit.State
-	}
-
-	if out, err := diecast.EvalInline(v, nil, templateFunctions); err == nil {
-		return out
-	} else {
-		log.Errorf("tpl: state: %v", err)
-		return self.evaluatedState
-	}
-}
-
-func (self *Button) _fill() colorutil.Color {
-	var v string
-
-	if self.Fill != `` {
-		v = self.Fill
-	} else if inherit := self.page.Defaults; inherit != nil {
-		v = inherit.Fill
-	}
-
-	if c, err := colorutil.Parse(v); err == nil {
-		return c
-	} else {
-		return colorutil.MustParse(`#000000`)
-	}
-}
-
-func (self *Button) _color() colorutil.Color {
-	var v string
-
-	if self.Color != `` {
-		v = self.Color
-	} else if inherit := self.page.Defaults; inherit != nil {
-		v = inherit.Color
-	}
-
-	if c, err := colorutil.Parse(v); err == nil {
-		return c
-	} else {
-		return colorutil.MustParse(`#FFFFFF`)
-	}
-}
-
-func (self *Button) _fontName() string {
-	if self.FontName != `` {
-		return self.FontName
-	} else if inherit := self.page.Defaults; inherit != nil && inherit.FontName != `` {
-		return inherit.FontName
-	} else {
-		return `monospace`
-	}
-}
-
-func (self *Button) _fontSize() float64 {
-	if self.FontSize > 0 {
-		return self.FontSize
-	} else if inherit := self.page.Defaults; inherit != nil && inherit.FontSize > 0 {
-		return inherit.FontSize
-	} else {
-		return 64
+		return value
 	}
 }
 
@@ -245,18 +175,18 @@ func (self *Button) _fontSize() float64 {
 func (self *Button) regen() {
 	self.visualArena = canvas.New(72, 72)
 
-	if v := self._action(); v != self.evaluatedAction || self.evaluatedAction == `` {
+	if v := self._property(`State`).String(); v != self.evaluatedState || self.evaluatedState == `` {
+		self.evaluatedState = v
+		self.hasChanges = true
+	}
+
+	if v := self._property(`Action`).String(); v != self.evaluatedAction || self.evaluatedAction == `` {
 		self.evaluatedAction = v
 		self.hasChanges = true
 	}
 
-	if v := self._text(); v != self.evaluatedText || self.evaluatedText == `` {
+	if v := self._property(`Text`).String(); v != self.evaluatedText || self.evaluatedText == `` {
 		self.evaluatedText = v
-		self.hasChanges = true
-	}
-
-	if v := self._state(); v != self.evaluatedState || self.evaluatedState == `` {
-		self.evaluatedState = v
 		self.hasChanges = true
 	}
 
@@ -266,7 +196,7 @@ func (self *Button) regen() {
 
 	var ctx = canvas.NewContext(self.visualArena)
 
-	ctx.SetFillColor(self._fill().NativeRGBA())
+	ctx.SetFillColor(colorutil.MustParse(self._property(`Fill`).String()).NativeRGBA())
 	ctx.SetStrokeColor(canvas.Transparent)
 	ctx.DrawPath(
 		0,
@@ -278,7 +208,7 @@ func (self *Button) regen() {
 		ctx.DrawImage(0, 0, img, 1)
 	}
 
-	if fontName := self._fontName(); self.fontFamily == nil && fontName != `` {
+	if fontName := self._property(`FontName`).String(); self.fontFamily == nil && fontName != `` {
 		var font = canvas.NewFontFamily(`text`)
 
 		if fileutil.FileExists(fontName) {
@@ -292,8 +222,8 @@ func (self *Button) regen() {
 
 	if self.fontFamily != nil {
 		var face = self.fontFamily.Face(
-			self._fontSize(),
-			self._color().NativeRGBA(),
+			self._property(`FontSize`).Float(),
+			colorutil.MustParse(self._property(`Color`).String()).NativeRGBA(),
 			canvas.FontRegular,
 			canvas.FontNormal,
 		)
@@ -364,12 +294,12 @@ func (self *Button) Sync() error {
 	self.hasChanges = true
 	self.regen()
 
-	log.Debugf("%02d| % 6s: %s", self.Index, `state`, self.evaluatedState)
-	log.Debugf("%02d| % 6s: %s", self.Index, `text`, self.evaluatedText)
-	log.Debugf("%02d| % 6s: %s", self.Index, `action`, self.evaluatedAction)
-	log.Debugf("%02d| % 6s: %v", self.Index, `fill`, self._fill())
-	log.Debugf("%02d| % 6s: %v", self.Index, `color`, self._color())
-	log.Debugf("%02d| % 6s: %s (%vpt)", self.Index, `font`, self._fontName(), self._fontSize())
+	// log.Debugf("%02d| % 6s: %s", self.Index, `state`, self.evaluatedState)
+	// log.Debugf("%02d| % 6s: %s", self.Index, `text`, self.evaluatedText)
+	// log.Debugf("%02d| % 6s: %s", self.Index, `action`, self.evaluatedAction)
+	// log.Debugf("%02d| % 6s: %v", self.Index, `fill`, self._fill())
+	// log.Debugf("%02d| % 6s: %v", self.Index, `color`, self._color())
+	// log.Debugf("%02d| % 6s: %s (%vpt)", self.Index, `font`, self._fontName(), self._fontSize())
 	// log.Debugf("%02d| % 6s: %v", self.Index, `image`, self.image)
 
 	return nil
@@ -387,7 +317,7 @@ func (self *Button) Trigger() error {
 
 		action = strings.ToLower(action)
 
-		log.Debugf("button %02d: trigger action=%s", self.Index, action)
+		log.Debugf("button %02d: trigger action=%s state=%s", self.Index, action, self.evaluatedState)
 
 		switch action {
 		case `shell`:
