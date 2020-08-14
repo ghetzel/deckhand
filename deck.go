@@ -120,8 +120,12 @@ func (self *Deck) Sync() error {
 		pg.deck = self
 		pg.Name = name
 
-		if err := pg.Sync(); err != nil {
-			return fmt.Errorf("page %v: %v", name, err)
+		if pg.Name == self.Page {
+			self.device.ClearButtons()
+
+			if err := pg.Sync(); err != nil {
+				return fmt.Errorf("page %v: %v", name, err)
+			}
 		}
 	}
 
@@ -255,7 +259,7 @@ func (self *Deck) ListenAndServe(address string) error {
 
 func (self *Deck) trigger(btn int) error {
 	if pg := self.CurrentPage(); pg != nil {
-		return pg.trigger(btn)
+		return pg.trigger(btn + 1)
 	} else {
 		return nil
 	}

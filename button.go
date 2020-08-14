@@ -278,10 +278,14 @@ func (self *Button) RenderTo(w io.Writer) error {
 }
 
 func (self *Button) Render() error {
+	if self.page == nil {
+		return nil
+	}
+
 	self.regen()
 
 	if rendered := rasterizer.Draw(self.visualArena, 1); rendered != nil {
-		if err := self.page.deck.device.WriteRawImageToButton(self.Index, rendered); err != nil {
+		if err := self.page.deck.device.WriteRawImageToButton(self.Index-1, rendered); err != nil {
 			return err
 		}
 	}

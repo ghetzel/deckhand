@@ -28,17 +28,23 @@ func (self *Page) Render() error {
 func (self *Page) Sync() error {
 	if self.deck == nil {
 		return fmt.Errorf("cannot sync page: no deck specified")
+	} else if len(self.Buttons) == 0 {
+		self.Buttons = make(map[int]*Button)
 	}
 
-	var merr error
+	for i := 1; i <= self.deck.Count; i++ {
+		if _, ok := self.Buttons[i]; !ok {
+			self.Buttons[i] = NewButton(self, i)
+			self.Buttons[i].auto = true
+		}
 
-	for i, btn := range self.Buttons {
-		btn.page = self
-		btn.Index = i
-		log.AppendError(merr, btn.Sync())
+		self.Buttons[i].page = self
+		self.Buttons[i].Index = i
+
+		go self.Buttons[i].Sync()
 	}
 
-	return merr
+	return nil
 }
 
 func (self *Page) trigger(i int) error {
