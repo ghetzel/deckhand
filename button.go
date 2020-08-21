@@ -44,28 +44,35 @@ var templateFunctions = func() diecast.FuncMap {
 		return (cmd.Run() == nil)
 	}
 
+	// fm[`cpuperc`] = func(metric string) float64 {}
+
 	return fm
 }()
 
 type Button struct {
-	Index           int
-	Fill            string             `yaml:"fill"     default:"#000000"`
-	Color           string             `yaml:"color"    default:"#FFFFFF"`
-	FontName        string             `yaml:"fontName" default:"monospace"`
-	FontSize        float64            `yaml:"fontSize" default:"64"`
-	Text            string             `yaml:"text"`
-	Action          string             `yaml:"action"`
-	State           string             `yaml:"state"`
-	States          map[string]*Button `yaml:"states"`
-	auto            bool
-	evaluatedText   string
-	evaluatedAction string
-	evaluatedState  string
-	image           image.Image
-	page            *Page
-	visualArena     *canvas.Canvas
-	fontFamily      *canvas.FontFamily
-	hasChanges      bool
+	Index             int
+	Fill              string             `yaml:"fill"          default:"#000000"`
+	Color             string             `yaml:"color"         default:"#FFFFFF"`
+	FontName          string             `yaml:"fontName"      default:"monospace"`
+	FontSize          float64            `yaml:"fontSize"      default:"64"`
+	Text              string             `yaml:"text"`
+	Progress          string             `yaml:"progress"`
+	ProgressColor     string             `yaml:"progressColor" default:"#FFFFFF"`
+	Maximum           string             `yaml:"maximum"`
+	Action            string             `yaml:"action"`
+	State             string             `yaml:"state"`
+	States            map[string]*Button `yaml:"states"`
+	auto              bool
+	evaluatedText     string
+	evaluatedAction   string
+	evaluatedState    string
+	evaluatedProgress float64
+	evaluatedMaximum  float64
+	image             image.Image
+	page              *Page
+	visualArena       *canvas.Canvas
+	fontFamily        *canvas.FontFamily
+	hasChanges        bool
 }
 
 func NewButton(page *Page, i int) *Button {
@@ -185,14 +192,43 @@ func (self *Button) regen() {
 		self.hasChanges = true
 	}
 
-	if v := self._property(`Text`).String(); v != self.evaluatedText || self.evaluatedText == `` {
-		self.evaluatedText = v
+	if v := self._property(`Progress`).Float(); v != self.evaluatedProgress || self.evaluatedProgress == 0 {
+		self.evaluatedProgress = v
 		self.hasChanges = true
 	}
 
-	// if !self.hasChanges {
-	// 	return
-	// }
+	if v := self._property(`Maximum`).Float(); v != self.evaluatedMaximum || self.evaluatedMaximum == 0 {
+		self.evaluatedMaximum = v
+		self.hasChanges = true
+	}
+
+	if v := self._property(`Text`).String(); v != self.evaluatedText || self.evaluatedText == `` {
+		var lines = strings.Split(v, "\n")
+
+		for i, line := range lines {
+			switch line {
+			case `---`:
+				lines[i] = strings.Repeat("\u2500", 10)
+			case `-!-`:
+				lines[i] = strings.Repeat("\u2501", 10)
+			case `|||`:
+				lines[i] = strings.Repeat("\u2509", 10)
+			case `===`:
+				lines[i] = strings.Repeat("\u2550", 10)
+			case `...`:
+				lines[i] = strings.Repeat("\u2504", 10)
+			case `.!.`:
+				lines[i] = strings.Repeat("\u2505", 10)
+			}
+		}
+
+		self.evaluatedText = strings.Join(lines, "\n")
+		self.hasChanges = true
+	}
+
+	if !self.hasChanges {
+		return
+	}
 
 	var ctx = canvas.NewContext(self.visualArena)
 
@@ -241,6 +277,16 @@ func (self *Button) regen() {
 
 		ctx.DrawText(0, ctx.Height(), text)
 	}
+
+	// if maximum := self.evaluatedMaximum; maximum > 0 {
+	// 	ctx.SetFillColor(canvas.Transparent)
+	// 	ctx.SetStrokeColor(colorutil.MustParse(self._property(`ProgressColor`).String()).NativeRGBA())
+	// 	ctx.DrawPath(
+	// 		0,
+	// 		0,
+	// 		canvas.RoundedRectangle(self.visualArena.W, self.visualArena.H, self.visualArena.H*0.2),
+	// 	)
+	// }
 
 	self.hasChanges = false
 }

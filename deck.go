@@ -16,6 +16,8 @@ import (
 	"github.com/ghetzel/go-stockutil/fileutil"
 	"github.com/ghetzel/go-stockutil/httputil"
 	"github.com/ghetzel/go-stockutil/log"
+	"github.com/ghetzel/go-stockutil/maputil"
+	"github.com/ghetzel/sysfact"
 	streamdeck "github.com/magicmonkey/go-streamdeck"
 	"github.com/radovskyb/watcher"
 	"gopkg.in/yaml.v2"
@@ -23,6 +25,7 @@ import (
 
 var DeckhandDir = executil.RootOrString(`/etc/deckhand`, `~/.config/deckhand`)
 var DeckhandLockFile = `draw.lock`
+var systemReport map[string]interface{}
 
 type UpdateDeckRequest struct {
 	Button
@@ -32,11 +35,12 @@ type UpdateDeckRequest struct {
 
 type Deck struct {
 	Name     string
-	Page     string           `yaml:"-" default:"default"`
-	Pages    map[string]*Page `yaml:"pages"`
-	Rows     int              `yaml:"rows"`
-	Cols     int              `yaml:"cols"`
-	Count    int              `yaml:"-"`
+	Page     string            `yaml:"-" default:"default"`
+	Pages    map[string]*Page  `yaml:"pages"`
+	Rows     int               `yaml:"rows"`
+	Cols     int               `yaml:"cols"`
+	Helpers  map[string]string `yaml:"helpers"`
+	Count    int               `yaml:"-"`
 	device   *streamdeck.Device
 	watcher  *watcher.Watcher
 	filename string
@@ -146,6 +150,14 @@ func (self *Deck) Sync() error {
 
 		self.watcher.Add(self.Filename())
 		go self.watcher.Start(250 * time.Millisecond)
+
+		go func() {
+			for range time.NewTicker(1000 * time.Millisecond).C {
+				if sysreport, err := sysfact.Report(); err == nil {
+					systemReport, _ = maputil.DiffuseMap(sysreport, `.`)
+				}
+			}
+		}()
 	}
 
 	return nil
@@ -202,6 +214,10 @@ func (self *Deck) ListenAndServe(address string) error {
 
 	server.Get(`/deckhand/v1/`, func(w http.ResponseWriter, req *http.Request) {
 		httputil.RespondJSON(w, `ok`)
+	})
+
+	server.Get(`/deckhand/v1/report/`, func(w http.ResponseWriter, req *http.Request) {
+		httputil.RespondJSON(w, systemReport)
 	})
 
 	server.Get(`/deckhand/v1/decks/`, func(w http.ResponseWriter, req *http.Request) {

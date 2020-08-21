@@ -10,6 +10,7 @@ type Page struct {
 	Name     string          `yaml:"-"`
 	Buttons  map[int]*Button `yaml:"buttons"`
 	Defaults *Button         `yaml:"defaults"`
+	Helper   string          `yaml:"helper"`
 	deck     *Deck
 }
 
