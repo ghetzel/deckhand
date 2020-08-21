@@ -37,6 +37,23 @@ var templateFunctions = func() diecast.FuncMap {
 		}
 	}
 
+	fm[`shellJson`] = func(cmdline string) (interface{}, error) {
+		var cmd = executil.ShellCommand(cmdline)
+		cmd.InheritEnv = true
+
+		if out, err := cmd.Output(); err == nil {
+			var oj interface{}
+
+			if err := json.Unmarshal([]byte(out), &oj); err == nil {
+				return oj, nil
+			} else {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+
 	fm[`shellOK`] = func(cmdline string) bool {
 		var cmd = executil.ShellCommand(cmdline)
 		cmd.InheritEnv = true
@@ -65,6 +82,7 @@ type Button struct {
 	auto              bool
 	evaluatedText     string
 	evaluatedAction   string
+	overrideState     string
 	evaluatedState    string
 	evaluatedProgress float64
 	evaluatedMaximum  float64
@@ -152,6 +170,10 @@ func (self *Button) _property(name string) typeutil.Variant {
 	var strct = maputil.M(self)
 
 	if name != `State` {
+		if ov := self.overrideState; ov != `` {
+			self.evaluatedState = ov
+		}
+
 		if state, ok := self.States[self.evaluatedState]; ok && state != nil {
 			if stateSpecificValue := state._property(name); !stateSpecificValue.IsNil() {
 				return stateSpecificValue
@@ -382,6 +404,10 @@ func (self *Button) Trigger() error {
 		case `page`:
 			self.page.deck.Page = arg
 			return self.page.deck.Sync()
+
+		case `state`:
+			self.overrideState = arg
+			return self.Sync()
 		}
 	}
 
