@@ -23,6 +23,8 @@ import (
 	"github.com/tdewolff/canvas/rasterizer"
 )
 
+const MultiActionSeparator = `->`
+
 var templateFunctions = func() diecast.FuncMap {
 	var fm = diecast.GetStandardFunctions(nil)
 
@@ -385,7 +387,9 @@ func (self *Button) Trigger() error {
 	defer self.Sync()
 
 	if self.evaluatedAction != `` {
-		for _, actionPair := range strings.Split(self.evaluatedAction, `|`) {
+		for _, actionPair := range strings.Split(self.evaluatedAction, MultiActionSeparator) {
+			actionPair = strings.TrimSpace(actionPair)
+
 			var action, arg = stringutil.SplitPair(actionPair, `:`)
 			var terr error
 
