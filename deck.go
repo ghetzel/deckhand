@@ -113,6 +113,11 @@ func (self *Deck) Open() error {
 	}
 }
 
+func (self *Deck) Clear() error {
+	self.device.ClearButtons()
+	return nil
+}
+
 func (self *Deck) Sync() error {
 	if err := self.load(self.filename); err != nil {
 		return err
@@ -125,7 +130,7 @@ func (self *Deck) Sync() error {
 		pg.Name = name
 
 		if pg.Name == self.Page {
-			self.device.ClearButtons()
+			self.Clear()
 
 			if err := pg.Sync(); err != nil {
 				return fmt.Errorf("page %v: %v", name, err)

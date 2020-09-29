@@ -385,29 +385,36 @@ func (self *Button) Trigger() error {
 	defer self.Sync()
 
 	if self.evaluatedAction != `` {
-		var action, arg = stringutil.SplitPair(self.evaluatedAction, `:`)
+		for _, actionPair := range strings.Split(self.evaluatedAction, `|`) {
+			var action, arg = stringutil.SplitPair(actionPair, `:`)
+			var terr error
 
-		action = strings.ToLower(action)
+			action = strings.ToLower(action)
 
-		log.Debugf("button %02d: trigger action=%s state=%s", self.Index, action, self.evaluatedState)
+			log.Debugf("button %02d: trigger action=%s state=%s", self.Index, action, self.evaluatedState)
 
-		switch action {
-		case `shell`:
-			if arg != `` {
-				var cmd = executil.ShellCommand(arg)
-				cmd.InheritEnv = true
+			switch action {
+			case `shell`:
+				if arg != `` {
+					var cmd = executil.ShellCommand(arg)
+					cmd.InheritEnv = true
 
-				return cmd.Run()
-			} else {
-				return fmt.Errorf("Action 'shell' must be given an argument")
+					terr = cmd.Run()
+				} else {
+					terr = fmt.Errorf("Action 'shell' must be given an argument")
+				}
+			case `page`:
+				self.page.deck.Page = arg
+				terr = self.page.deck.Sync()
+
+			case `state`:
+				self.overrideState = arg
+				terr = self.Sync()
 			}
-		case `page`:
-			self.page.deck.Page = arg
-			return self.page.deck.Sync()
 
-		case `state`:
-			self.overrideState = arg
-			return self.Sync()
+			if terr != nil {
+				return terr
+			}
 		}
 	}
 
