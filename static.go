@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -100,7 +102,24 @@ func (f *_escFile) Close() error {
 }
 
 func (f *_escFile) Readdir(count int) ([]os.FileInfo, error) {
-	return nil, nil
+	if !f.isDir {
+		return nil, fmt.Errorf(" escFile.Readdir: '%s' is not directory", f.name)
+	}
+
+	fis, ok := _escDirs[f.local]
+	if !ok {
+		return nil, fmt.Errorf(" escFile.Readdir: '%s' is directory, but we have no info about content of this dir, local=%s", f.name, f.local)
+	}
+	limit := count
+	if count <= 0 || limit > len(fis) {
+		limit = len(fis)
+	}
+
+	if len(fis) == 0 && count > 0 {
+		return nil, io.EOF
+	}
+
+	return fis[0:limit], nil
 }
 
 func (f *_escFile) Stat() (os.FileInfo, error) {
@@ -191,6 +210,7 @@ func FSMustString(useLocal bool, name string) string {
 var _escData = map[string]*_escFile{
 
 	"/_layouts/default.html": {
+		name:    "default.html",
 		local:   "ui/_layouts/default.html",
 		size:    1897,
 		modtime: 1500000000,
@@ -211,6 +231,7 @@ AAD//+AokPlpBwAA
 	},
 
 	"/edit__id.html": {
+		name:    "edit__id.html",
 		local:   "ui/edit__id.html",
 		size:    357,
 		modtime: 1500000000,
@@ -224,6 +245,7 @@ JwAA//8A4YJgZQEAAA==
 	},
 
 	"/index.html": {
+		name:    "index.html",
 		local:   "ui/index.html",
 		size:    976,
 		modtime: 1500000000,
@@ -240,12 +262,27 @@ cwe8jzB6ddttjtFXNzM6On7+keYaRoU8lf8CAAD//5Bu1ujQAwAA
 	},
 
 	"/": {
+		name:  "/",
+		local: `ui`,
 		isDir: true,
-		local: "ui",
 	},
 
 	"/_layouts": {
+		name:  "_layouts",
+		local: `ui/_layouts`,
 		isDir: true,
-		local: "ui/_layouts",
+	},
+}
+
+var _escDirs = map[string][]os.FileInfo{
+
+	"ui": {
+		_escData["/_layouts"],
+		_escData["/edit__id.html"],
+		_escData["/index.html"],
+	},
+
+	"ui/_layouts": {
+		_escData["/_layouts/default.html"],
 	},
 }
