@@ -75,6 +75,7 @@ type Button struct {
 	FontName          string             `yaml:"fontName"      default:"monospace"`
 	FontSize          float64            `yaml:"fontSize"      default:"64"`
 	Text              string             `yaml:"text"`
+	Icon              string             `yaml:"icon"`
 	Progress          string             `yaml:"progress"`
 	ProgressColor     string             `yaml:"progressColor" default:"#FFFFFF"`
 	Maximum           string             `yaml:"maximum"`
@@ -82,12 +83,18 @@ type Button struct {
 	State             string             `yaml:"state"`
 	States            map[string]*Button `yaml:"states"`
 	auto              bool
+	override          *Button
 	evaluatedText     string
+	evaluatedIcon     string
 	evaluatedAction   string
 	overrideState     string
 	evaluatedState    string
 	evaluatedProgress float64
 	evaluatedMaximum  float64
+	evaluatedFontName string
+	evaluatedColor    string
+	evaluatedFill     string
+	evaluatedFontSize float64
 	image             image.Image
 	page              *Page
 	visualArena       *canvas.Canvas
@@ -134,6 +141,8 @@ func (self *Button) ServeProperty(w http.ResponseWriter, req *http.Request, prop
 		val = self.evaluatedText
 	case `action`:
 		val = self.evaluatedAction
+	case `icon`:
+		val = self.evaluatedIcon
 	case `state`:
 		val = self.evaluatedState
 	case `image`:
@@ -151,6 +160,18 @@ func (self *Button) ServeProperty(w http.ResponseWriter, req *http.Request, prop
 	w.Write([]byte(val))
 }
 
+func (self *Button) Reset() {
+	self.Color = ``
+	self.Fill = ``
+	self.Text = ``
+	self.Action = ``
+	self.State = ``
+	self.States = nil
+	self.FontName = ``
+	self.FontSize = 0
+	defaults.SetDefaults(self)
+}
+
 func (self *Button) SetProperty(propname string, value interface{}) {
 	switch propname {
 	case `fill`:
@@ -161,6 +182,8 @@ func (self *Button) SetProperty(propname string, value interface{}) {
 		self.Text = typeutil.String(value)
 	case `action`:
 		self.Action = typeutil.String(value)
+	case `icon`:
+		self.Icon = typeutil.String(value)
 	case `state`:
 		self.State = typeutil.String(value)
 	case `fontSize`:
@@ -168,7 +191,7 @@ func (self *Button) SetProperty(propname string, value interface{}) {
 	case `fontName`:
 		self.FontName = typeutil.String(value)
 	default:
-		maputil.DeepSet(self, strings.Split(propname, `.`), value)
+		maputil.M(self).Set(propname, value)
 	}
 }
 
@@ -191,6 +214,7 @@ func (self *Button) isReady() bool {
 func (self *Button) _property(name string) typeutil.Variant {
 	var value = typeutil.V(nil)
 	var strct = maputil.M(self)
+	var ovrid = maputil.M(self.override)
 
 	if name != `State` {
 		if ov := self.overrideState; ov != `` {
@@ -204,7 +228,9 @@ func (self *Button) _property(name string) typeutil.Variant {
 		}
 	}
 
-	if v := strct.Get(name); !v.IsZero() {
+	if v := ovrid.Get(name); !v.IsZero() {
+		value = v
+	} else if v := strct.Get(name); !v.IsZero() {
 		value = v
 	} else if self.page != nil {
 		if inherit := self.page.Defaults; inherit != nil {
@@ -230,6 +256,15 @@ func (self *Button) regen() {
 	if v := self._property(`State`).String(); v != self.evaluatedState || self.evaluatedState == `` {
 		self.evaluatedState = v
 		self.hasChanges = true
+	}
+
+	if v := self._property(`Icon`).String(); v != `` {
+		if ico, ok := self.page.deck.Icons[v]; ok {
+			var i = ico
+			self.override = &i
+		} else {
+			self.override = nil
+		}
 	}
 
 	if v := self._property(`Action`).String(); v != self.evaluatedAction || self.evaluatedAction == `` {

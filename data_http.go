@@ -20,6 +20,10 @@ type HttpConfig struct {
 	Insecure    bool                   `yaml:"insecure"`
 }
 
+func (self *HttpConfig) Key() string {
+	return self.ID
+}
+
 func (self *HttpConfig) Do() (interface{}, error) {
 	defaults.SetDefaults(self)
 

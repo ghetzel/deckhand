@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"go/constant"
+	"go/token"
 	"os"
 	"strings"
 	"time"
@@ -16,9 +18,39 @@ import (
 	"github.com/ghetzel/go-stockutil/typeutil"
 )
 
+type Doable interface {
+	Do() (interface{}, error)
+	Key() string
+}
+
+type DataConfig struct {
+	HTTP []*HttpConfig  `yaml:"http"`
+	Exec []*ShellConfig `yaml:"exec"`
+}
+
+func (self *DataConfig) Doables() (out []Doable) {
+	for _, hc := range self.HTTP {
+		var v interface{} = hc
+
+		if d, ok := v.(Doable); ok {
+			out = append(out, d)
+		}
+	}
+
+	for _, sc := range self.Exec {
+		var v interface{} = sc
+
+		if d, ok := v.(Doable); ok {
+			out = append(out, d)
+		}
+	}
+
+	return
+}
+
 type Page struct {
 	Name         string          `yaml:"-"`
-	HTTP         []*HttpConfig   `yaml:"http"`
+	DataConfig   DataConfig      `yaml:"data"`
 	Buttons      map[int]*Button `yaml:"buttons"`
 	Defaults     *Button         `yaml:"defaults"`
 	Helper       string          `yaml:"helper"`
@@ -81,10 +113,10 @@ func (self *Page) syncData() error {
 		self.data = make(map[string]interface{})
 	}
 
-	for i, req := range self.HTTP {
+	for i, req := range self.DataConfig.Doables() {
 		if out, err := req.Do(); err == nil {
 			if out != nil {
-				var key = sliceutil.OrString(req.ID, fmt.Sprintf("data%d", i))
+				var key = sliceutil.OrString(req.Key(), fmt.Sprintf("data%d", i))
 				self.data[key] = out
 			}
 		} else {
@@ -108,7 +140,7 @@ func (self *Page) RunHelper() error {
 
 		if helper, ok := self.deck.Helpers[self.Helper]; ok && helper != `` {
 			if err := self.syncData(); err != nil {
-				return nil
+				return err
 			}
 
 			var helperTempPattern = fmt.Sprintf("deckhand-%s-%s-", self.deck.Name, self.Name)
@@ -127,30 +159,24 @@ func (self *Page) RunHelper() error {
 					os.Chmod(tmp, 0700)
 					defer os.Remove(tmp)
 
-					var helperArgs []string
+					// var helperArgs []string
 
-					if self.HelperArgs != `` {
-						if args, err := executil.Split(self.HelperArgs); err == nil {
-							helperArgs = args
-						} else {
-							return fmt.Errorf("bad args: %v", err)
-						}
-					}
+					// if self.HelperArgs != `` {
+					// 	if args, err := executil.Split(self.HelperArgs); err == nil {
+					// 		helperArgs = args
+					// 	} else {
+					// 		return fmt.Errorf("bad args: %v", err)
+					// 	}
+					// }
 
-					var helperCmd = executil.Command(tmp, helperArgs...)
+					var helperCmd = executil.ShellCommand(tmp + ` ` + self.HelperArgs)
+
+					self.prepCommand(helperCmd)
 
 					helperCmd.Timeout = time.Second
 					helperCmd.Stderr = log.NewWritableLogger(log.WARNING, `helper: `)
-					helperCmd.InheritEnv = true
-
 					helperCmd.SetEnv(`DIECAST_PAGE_DATA_FILE`, datafile)
 					helperCmd.SetEnv(`DECKHAND_DATA_FILE`, datafile)
-					helperCmd.SetEnv(`DECKHAND_PAGE`, self.Name)
-					helperCmd.SetEnv(`DECKHAND_DECK`, self.deck.Name)
-					helperCmd.SetEnv(`DECKHAND_DEVICE_BUTTONS`, self.deck.Count)
-					helperCmd.SetEnv(`DECKHAND_DEVICE_ROWS`, self.deck.Rows)
-					helperCmd.SetEnv(`DECKHAND_DEVICE_COLS`, self.deck.Cols)
-					helperCmd.SetEnv(`DECKHAND_DEVICE_MODEL`, self.deck.device.GetName())
 
 					if btn, err := helperCmd.Output(); err == nil {
 						log.Debugf("helper %v: took %v", self.Helper, time.Since(start))
@@ -172,8 +198,8 @@ func (self *Page) RunHelper() error {
 
 								switch atDirective {
 								case `clear`:
-									self.deck.Clear()
-									self.Buttons = make(map[int]*Button)
+									self.Clear()
+									// self.Buttons = make(map[int]*Button)
 								case `preserve`:
 									preserveExisting = true
 								case `debug`:
@@ -210,6 +236,15 @@ func (self *Page) RunHelper() error {
 								}
 
 								if btn != nil {
+									// this wild nonsense lets us piggypack on golang's own string escaping rules
+									v = constant.StringVal(
+										constant.MakeFromLiteral(
+											`"`+v+`"`,
+											token.STRING,
+											0,
+										),
+									)
+
 									btn.SetProperty(
 										strings.Join(bkey[1:], `.`),
 										typeutil.Auto(v),
@@ -227,6 +262,20 @@ func (self *Page) RunHelper() error {
 				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+func (self *Page) Clear() error {
+	for i := 1; i <= self.deck.Count; i++ {
+		if _, ok := self.Buttons[i]; !ok {
+			self.Buttons[i] = NewButton(self, i)
+			self.Buttons[i].auto = true
+		}
+
+		self.Buttons[i].page = self
+		self.Buttons[i].Index = i
 	}
 
 	return nil
@@ -254,7 +303,7 @@ func (self *Page) Sync() error {
 		self.Buttons[i].page = self
 		self.Buttons[i].Index = i
 
-		go self.Buttons[i].Sync()
+		self.Buttons[i].Sync()
 	}
 
 	self.lastSyncedAt = time.Now()
@@ -288,4 +337,15 @@ func (self *Page) dump() {
 			)
 		}
 	}
+}
+
+func (self *Page) prepCommand(cmd *executil.Cmd) {
+	cmd.InheritEnv = true
+
+	cmd.SetEnv(`DECKHAND_PAGE`, self.Name)
+	cmd.SetEnv(`DECKHAND_DECK`, self.deck.Name)
+	cmd.SetEnv(`DECKHAND_DEVICE_BUTTONS`, self.deck.Count)
+	cmd.SetEnv(`DECKHAND_DEVICE_ROWS`, self.deck.Rows)
+	cmd.SetEnv(`DECKHAND_DEVICE_COLS`, self.deck.Cols)
+	cmd.SetEnv(`DECKHAND_DEVICE_MODEL`, self.deck.device.GetName())
 }

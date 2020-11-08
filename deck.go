@@ -63,6 +63,7 @@ type Deck struct {
 	Rows     int               `yaml:"rows"`
 	Cols     int               `yaml:"cols"`
 	Helpers  map[string]string `yaml:"helpers"`
+	Icons    map[string]Button `yaml:"icons"`
 	Count    int               `yaml:"-"`
 	device   *streamdeck.Device
 	watcher  *watcher.Watcher
@@ -117,6 +118,8 @@ func (self *Deck) Open() error {
 				if err := self.trigger(i); err != nil {
 					log.Errorf("btn[%d]: %v", i, err)
 				}
+
+				self.CurrentPage().Sync()
 			}
 		})
 
