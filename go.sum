@@ -128,8 +128,8 @@ github.com/ghetzel/diecast v0.0.0-20180404162638-0eeab4621f46/go.mod h1:swOXR3uO
 github.com/ghetzel/diecast v1.9.15/go.mod h1:XQ2W1E2vb9H5n0fagF7Ti4AiAVmqq8E3DoNVziO6k5c=
 github.com/ghetzel/diecast v1.13.10/go.mod h1:h9Mri+vMxBaCfK1J241NLCOWFi0uf7MWHN4v7C68Ylg=
 github.com/ghetzel/diecast v1.17.14/go.mod h1:2IFT0FtoKxdcaxU4ti+yDGmN/AukQp1Uj8yZNBQ3hHY=
-github.com/ghetzel/diecast v1.19.2 h1:4oobqXW+K5Xy3IZ/kwCn+ufc8uG2tWIkA5qENC14gGc=
-github.com/ghetzel/diecast v1.19.2/go.mod h1:GLO8mvXdB8rplbeiZsnMPC68SVxg197mk5VQgPWyVEI=
+github.com/ghetzel/diecast v1.19.6 h1:YS6UKKDKEJX6JFfsbCxFNoPFQ7yB0It4WkRRN6TLXO8=
+github.com/ghetzel/diecast v1.19.6/go.mod h1:WyJGNTZgoKL0zvtk5AiY9xyJh8ZMtD5rx5jbKGUXxj0=
 github.com/ghetzel/friendscript v0.5.0/go.mod h1:GZJ2FZRpgvURp4hUb/AdevNCnHKCWRpKLxtAl817F4g=
 github.com/ghetzel/friendscript v0.5.5/go.mod h1:zYqGAS3vGMxM912/T9GP1S62VP+AXssMDv9dPzO0Ph0=
 github.com/ghetzel/friendscript v0.6.6 h1:jpi8zy2luueXYmEJg1sKUtzNW1Cjk4FvQ8QXuGLRaUE=
@@ -142,8 +142,9 @@ github.com/ghetzel/go-stockutil v1.8.3/go.mod h1:zHk/p1VcoQbWngvmelsQbFbZ6eIQDA4
 github.com/ghetzel/go-stockutil v1.8.4/go.mod h1:tq1ycYqlC1z9ZX/Pvgz+sePJvpHsJbd692w8936ed+U=
 github.com/ghetzel/go-stockutil v1.8.42/go.mod h1:Upalidr5qSOijbhYb6yED2X2rDoFFFVhl2z0H/hyCmw=
 github.com/ghetzel/go-stockutil v1.8.53/go.mod h1:Upalidr5qSOijbhYb6yED2X2rDoFFFVhl2z0H/hyCmw=
-github.com/ghetzel/go-stockutil v1.8.81 h1:wy7bgtKdLHyPv6aO24//CpRDCHZKsWa0shJ3wKcVEzE=
-github.com/ghetzel/go-stockutil v1.8.81/go.mod h1:pVa9I7cYVgQV052hr6Z4OOBOYfOMKsm+aLIWMGMciO4=
+github.com/ghetzel/go-stockutil v1.8.82/go.mod h1:pVa9I7cYVgQV052hr6Z4OOBOYfOMKsm+aLIWMGMciO4=
+github.com/ghetzel/go-stockutil v1.8.83 h1:X8zTHhiJiU64zr6sdbIXgPHdalo6XR8DKinTvn3r5aE=
+github.com/ghetzel/go-stockutil v1.8.83/go.mod h1:pVa9I7cYVgQV052hr6Z4OOBOYfOMKsm+aLIWMGMciO4=
 github.com/ghetzel/go-webfriend v0.9.23/go.mod h1:4tjKFGdCtac9eXJ8Hz48DSCoiwjhzynwFFiyhsLfMnI=
 github.com/ghetzel/go-webfriend v0.9.40/go.mod h1:RDBxcAknpDWMJFOKS9AFiNldv+R6siUKFB4DDv+BGRI=
 github.com/ghetzel/go-webfriend v0.9.60 h1:all/aCdFxqUd1NEeCtaFYrU14+WKLDatxFR2B49R/gw=

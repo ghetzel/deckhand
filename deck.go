@@ -33,6 +33,29 @@ type UpdateDeckRequest struct {
 	Page string
 }
 
+// A Deck represents the configuration details for a specific StreamDeck device.
+// Buttons are organized into Pages, which can be navigated between and configured
+// with scripts using Helpers.
+//
+// Helpers
+//
+// A helper is an executable script that will be passed to the system's shell,
+// and whose output will be used to configure some or all of the current screen.
+// The configuration of some or all of the buttons on the screen is controlled'
+// with the standard output of the helper script, which describes which buttons
+// on the device will be configured and how.
+//
+//   Example Output
+//
+//   @clear
+//   1.text=Hello There
+//   1.fill=#FF00CC
+//   1.action=shell:/bin/true
+//
+//  This output would clear all configurations on the current page, then set
+//  button 1 (top-left) to the text "Hello There", with a magenta background,
+//  and would run the shell command "/bin/true" when pressed.
+
 type Deck struct {
 	Name     string
 	Page     string            `yaml:"-" default:"default"`

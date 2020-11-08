@@ -151,6 +151,27 @@ func (self *Button) ServeProperty(w http.ResponseWriter, req *http.Request, prop
 	w.Write([]byte(val))
 }
 
+func (self *Button) SetProperty(propname string, value interface{}) {
+	switch propname {
+	case `fill`:
+		self.Fill = typeutil.String(value)
+	case `color`:
+		self.Color = typeutil.String(value)
+	case `text`:
+		self.Text = typeutil.String(value)
+	case `action`:
+		self.Action = typeutil.String(value)
+	case `state`:
+		self.State = typeutil.String(value)
+	case `fontSize`:
+		self.FontSize = typeutil.Float(value)
+	case `fontName`:
+		self.FontName = typeutil.String(value)
+	default:
+		maputil.DeepSet(self, strings.Split(propname, `.`), value)
+	}
+}
+
 func (self *Button) isReady() bool {
 	if self.page == nil {
 		return false

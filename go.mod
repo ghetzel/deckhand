@@ -4,9 +4,9 @@ go 1.14
 
 require (
 	github.com/ghetzel/cli v1.17.0
-	github.com/ghetzel/diecast v1.19.2
+	github.com/ghetzel/diecast v1.19.6
 	github.com/ghetzel/go-defaults v1.2.0
-	github.com/ghetzel/go-stockutil v1.8.81
+	github.com/ghetzel/go-stockutil v1.8.83
 	github.com/ghetzel/sysfact v0.7.2
 	github.com/magicmonkey/go-streamdeck v0.0.1-alpha
 	github.com/radovskyb/watcher v1.0.7
