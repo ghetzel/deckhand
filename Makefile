@@ -21,9 +21,9 @@ test: fmt deps
 
 $(DECKHAND_BIN):
 	go build --ldflags '-extldflags "-static"' -ldflags '-s' -o $(DECKHAND_BIN) *.go
-#	@which ud       > /dev/null && ud stop deckhand || true
-#	@which deckhand > /dev/null && cp -v $(DECKHAND_BIN) $(shell which deckhand)
-#	@which ud       > /dev/null && ud start deckhand || true
+	@which ud       > /dev/null && ud stop deckhand || true
+	@which deckhand > /dev/null && cp -v $(DECKHAND_BIN) $(shell which deckhand)
+	@which ud       > /dev/null && ud start deckhand || true
 
 build: $(DECKHAND_BIN)
 

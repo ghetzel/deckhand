@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/ghetzel/diecast"
 	"github.com/ghetzel/go-defaults"
@@ -22,6 +23,19 @@ import (
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/rasterizer"
 )
+
+// Specifies a symbolic mapping between text lines in the per-button
+// configuration and what text is output in the final render.
+var EntityMap = func() (m sync.Map) {
+	m.Store(`---`, strings.Repeat("\u2500", 10))
+	m.Store(`-!-`, strings.Repeat("\u2501", 10))
+	m.Store(`|||`, strings.Repeat("\u2509", 10))
+	m.Store(`===`, strings.Repeat("\u2550", 10))
+	m.Store(`...`, strings.Repeat("\u2504", 10))
+	m.Store(`.!.`, strings.Repeat("\u2505", 10))
+
+	return
+}()
 
 const MultiActionSeparator = `->`
 
@@ -69,20 +83,22 @@ var templateFunctions = func() diecast.FuncMap {
 }()
 
 type Button struct {
-	Index             int
-	Fill              string             `yaml:"fill"          default:"#000000"`
-	Color             string             `yaml:"color"         default:"#FFFFFF"`
-	FontName          string             `yaml:"fontName"      default:"monospace"`
-	FontSize          float64            `yaml:"fontSize"      default:"64"`
-	Text              string             `yaml:"text"`
-	Icon              string             `yaml:"icon"`
-	Progress          string             `yaml:"progress"`
-	ProgressColor     string             `yaml:"progressColor" default:"#FFFFFF"`
-	Maximum           string             `yaml:"maximum"`
-	Action            string             `yaml:"action"`
-	State             string             `yaml:"state"`
-	States            map[string]*Button `yaml:"states"`
+	Index         int
+	Fill          string             `yaml:"fill"          default:"#000000"`
+	Color         string             `yaml:"color"         default:"#FFFFFF"`
+	FontName      string             `yaml:"fontName"      default:"monospace"`
+	FontSize      float64            `yaml:"fontSize"      default:"64"`
+	Text          string             `yaml:"text"`
+	Icon          string             `yaml:"icon"`
+	Progress      string             `yaml:"progress"`
+	ProgressColor string             `yaml:"progressColor" default:"#FFFFFF"`
+	Maximum       string             `yaml:"maximum"`
+	Action        string             `yaml:"action"`
+	State         string             `yaml:"state"`
+	States        map[string]*Button `yaml:"states"`
+	// Visible           string             `yaml:"visible"`
 	auto              bool
+	sticky            bool
 	override          *Button
 	evaluatedText     string
 	evaluatedIcon     string
@@ -104,8 +120,8 @@ type Button struct {
 
 func NewButton(page *Page, i int) *Button {
 	var btn = &Button{
-		page:  page,
 		Index: i,
+		page:  page,
 	}
 
 	return btn
@@ -145,6 +161,8 @@ func (self *Button) ServeProperty(w http.ResponseWriter, req *http.Request, prop
 		val = self.evaluatedIcon
 	case `state`:
 		val = self.evaluatedState
+	case `visible`:
+		val = typeutil.String(self._property(`Visible`).Bool())
 	case `image`:
 		if self.image != nil {
 			w.Header().Set(`Content-Type`, `image/png`)
@@ -190,6 +208,8 @@ func (self *Button) SetProperty(propname string, value interface{}) {
 		self.FontSize = typeutil.Float(value)
 	case `fontName`:
 		self.FontName = typeutil.String(value)
+	// case `visible`:
+	// 	self.Visible = typeutil.String(value)
 	default:
 		maputil.M(self).Set(propname, value)
 	}
@@ -239,11 +259,15 @@ func (self *Button) _property(name string) typeutil.Variant {
 	}
 
 	if vS := value.String(); strings.Contains(vS, `{{`) && strings.Contains(vS, `}}`) {
-		if out, err := diecast.EvalInline(value.String(), nil, templateFunctions); err == nil {
-			return typeutil.V(out)
-		} else {
-			return maputil.M(self).Get(`evaluated` + name)
+		if self.page != nil {
+			if out, err := self.page.eval(value.String()); err == nil {
+				return out
+			} else {
+				log.Warningf("property %s: bad template: %v", name, err)
+			}
 		}
+
+		return maputil.M(self).Get(`evaluated` + name)
 	} else {
 		return value
 	}
@@ -252,6 +276,11 @@ func (self *Button) _property(name string) typeutil.Variant {
 // Uses the existing values that have already been parsed from the various files and evaluates them.
 func (self *Button) regen() {
 	self.visualArena = canvas.New(72, 72)
+
+	// if visible := self._property(`Visible`); visible.String() != `` && !visible.Bool() {
+	// 	self.Reset()
+	// 	return
+	// }
 
 	if v := self._property(`State`).String(); v != self.evaluatedState || self.evaluatedState == `` {
 		self.evaluatedState = v
@@ -286,19 +315,8 @@ func (self *Button) regen() {
 		var lines = strings.Split(v, "\n")
 
 		for i, line := range lines {
-			switch line {
-			case `---`:
-				lines[i] = strings.Repeat("\u2500", 10)
-			case `-!-`:
-				lines[i] = strings.Repeat("\u2501", 10)
-			case `|||`:
-				lines[i] = strings.Repeat("\u2509", 10)
-			case `===`:
-				lines[i] = strings.Repeat("\u2550", 10)
-			case `...`:
-				lines[i] = strings.Repeat("\u2504", 10)
-			case `.!.`:
-				lines[i] = strings.Repeat("\u2505", 10)
+			if repl := maputil.M(&EntityMap).String(line); repl != `` {
+				lines[i] = repl
 			}
 		}
 
@@ -464,12 +482,67 @@ func (self *Button) Trigger() error {
 					terr = fmt.Errorf("Action 'shell' must be given an argument")
 				}
 			case `page`:
-				self.page.deck.Page = arg
+				var pg, rest = stringutil.SplitPairTrimSpace(arg, `;`)
+
+				self.page.deck.Page = pg
 				terr = self.page.deck.Sync()
+
+				if pg := self.page.deck.CurrentPage(); pg != nil {
+					pg.setDataFromArgLine(rest, autotypePageData)
+				}
 
 			case `state`:
 				self.overrideState = arg
 				terr = self.Sync()
+
+			case `cleardata`:
+				self.page.data = maputil.M(nil)
+
+			case `set`:
+				self.page.setDataFromArgLine(arg, autotypePageData)
+
+				for _, pair := range strings.Split(arg, `;`) {
+					var k, v = stringutil.SplitPairTrimSpace(pair, `=`)
+
+					self.page.data.Set(k, typeutil.Auto(v))
+				}
+
+			case `increment`:
+				self.page.setDataFromArgLine(arg, func(m *maputil.Map, kk string, vv string) interface{} {
+					var v0, v1 = stringutil.SplitPair(vv, `,`)
+
+					var vi = typeutil.Int(v0)
+
+					if vi == 0 {
+						vi = 1
+					}
+
+					var vlim = typeutil.Int(v1)
+					var next = m.Int(kk) + vi
+
+					if vlim > 0 && next > vlim {
+						return vlim
+					} else {
+						return next
+					}
+				})
+
+			case `decrement`:
+				self.page.setDataFromArgLine(arg, func(m *maputil.Map, kk string, vv string) interface{} {
+					var v0, v1 = stringutil.SplitPair(vv, `,`)
+					var vi = typeutil.Int(v0)
+					var vlim = typeutil.Int(v1)
+					var vnext = m.Int(kk) - vi
+
+					log.Debugf("decr: key=%s, v0=%v v1=%v vi=%v vlim=%v next=%v", kk, v0, v1, vi, vlim, vnext)
+
+					if vnext < vlim {
+						return vlim
+					} else {
+						return vnext
+					}
+				})
+
 			}
 
 			if terr != nil {
@@ -479,4 +552,8 @@ func (self *Button) Trigger() error {
 	}
 
 	return nil
+}
+
+func autotypePageData(m *maputil.Map, kk string, vv string) interface{} {
+	return typeutil.Auto(vv)
 }

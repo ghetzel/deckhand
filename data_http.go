@@ -24,7 +24,7 @@ func (self *HttpConfig) Key() string {
 	return self.ID
 }
 
-func (self *HttpConfig) Do() (interface{}, error) {
+func (self *HttpConfig) Do(page *Page) (interface{}, error) {
 	defaults.SetDefaults(self)
 
 	var url = stringutil.ExpandEnv(self.URL)

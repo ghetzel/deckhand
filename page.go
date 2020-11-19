@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghetzel/diecast"
 	"github.com/ghetzel/go-defaults"
 	"github.com/ghetzel/go-stockutil/executil"
 	"github.com/ghetzel/go-stockutil/fileutil"
@@ -18,14 +19,17 @@ import (
 	"github.com/ghetzel/go-stockutil/typeutil"
 )
 
+type pageSetDataFunc func(m *maputil.Map, key string, value string) interface{}
+
 type Doable interface {
-	Do() (interface{}, error)
+	Do(*Page) (interface{}, error)
 	Key() string
 }
 
 type DataConfig struct {
-	HTTP []*HttpConfig  `yaml:"http"`
-	Exec []*ShellConfig `yaml:"exec"`
+	HTTP    []*HttpConfig    `yaml:"http"`
+	Exec    []*ShellConfig   `yaml:"exec"`
+	Literal []*LiteralConfig `yaml:"literal"`
 }
 
 func (self *DataConfig) Doables() (out []Doable) {
@@ -60,7 +64,7 @@ type Page struct {
 	everHelped   bool
 	everSynced   bool
 	lastSyncedAt time.Time
-	data         map[string]interface{}
+	data         *maputil.Map
 	helpRunning  bool
 }
 
@@ -72,6 +76,10 @@ func (self *Page) Render() error {
 	var merr error
 
 	if !self.everHelped {
+		for _, btn := range self.Buttons {
+			btn.sticky = true
+		}
+
 		if err := self.RunHelper(); err != nil {
 			log.Warningf("helper %v: %v", self.Helper, err)
 		}
@@ -110,14 +118,15 @@ func (self *Page) shouldSync() bool {
 
 func (self *Page) syncData() error {
 	if self.data == nil {
-		self.data = make(map[string]interface{})
+		self.data = maputil.M(nil)
 	}
 
 	for i, req := range self.DataConfig.Doables() {
-		if out, err := req.Do(); err == nil {
+		if out, err := req.Do(self); err == nil {
 			if out != nil {
 				var key = sliceutil.OrString(req.Key(), fmt.Sprintf("data%d", i))
-				self.data[key] = out
+
+				self.data.Set(key, out)
 			}
 		} else {
 			return fmt.Errorf("request %d: %v", i, err)
@@ -148,10 +157,10 @@ func (self *Page) RunHelper() error {
 
 			// write helper data to a file
 			if datafile, err := fileutil.WriteTempFile(
-				maputil.M(self.data).JSON(`  `),
+				maputil.M(self.dataMap()).JSON(`  `),
 				helperTempPattern+`data-`,
 			); err == nil {
-				os.Chmod(datafile, 0700)
+				os.Chmod(datafile, 0600)
 				defer os.Remove(datafile)
 
 				// write helper script to a file
@@ -199,7 +208,6 @@ func (self *Page) RunHelper() error {
 								switch atDirective {
 								case `clear`:
 									self.Clear()
-									// self.Buttons = make(map[int]*Button)
 								case `preserve`:
 									preserveExisting = true
 								case `debug`:
@@ -213,7 +221,7 @@ func (self *Page) RunHelper() error {
 								continue
 							}
 
-							if k, v := stringutil.SplitPair(line, `=`); k != `` {
+							if k, v := stringutil.SplitPairTrimSpace(line, `=`); k != `` {
 								var bkey = strings.Split(k, `.`)
 								var bidx int = int(typeutil.Int(bkey[0]))
 								var btn *Button
@@ -269,11 +277,12 @@ func (self *Page) RunHelper() error {
 
 func (self *Page) Clear() error {
 	for i := 1; i <= self.deck.Count; i++ {
-		if _, ok := self.Buttons[i]; !ok {
-			self.Buttons[i] = NewButton(self, i)
-			self.Buttons[i].auto = true
+		if btn, ok := self.Buttons[i]; ok && btn.sticky {
+			continue
 		}
 
+		self.Buttons[i] = NewButton(self, i)
+		self.Buttons[i].auto = true
 		self.Buttons[i].page = self
 		self.Buttons[i].Index = i
 	}
@@ -339,6 +348,18 @@ func (self *Page) dump() {
 	}
 }
 
+func (self *Page) eval(dcTemplate string) (typeutil.Variant, error) {
+	if out, err := diecast.EvalInline(
+		dcTemplate,
+		self.dataMap(),
+		templateFunctions,
+	); err == nil {
+		return typeutil.V(out), nil
+	} else {
+		return typeutil.V(nil), err
+	}
+}
+
 func (self *Page) prepCommand(cmd *executil.Cmd) {
 	cmd.InheritEnv = true
 
@@ -348,4 +369,31 @@ func (self *Page) prepCommand(cmd *executil.Cmd) {
 	cmd.SetEnv(`DECKHAND_DEVICE_ROWS`, self.deck.Rows)
 	cmd.SetEnv(`DECKHAND_DEVICE_COLS`, self.deck.Cols)
 	cmd.SetEnv(`DECKHAND_DEVICE_MODEL`, self.deck.device.GetName())
+}
+
+func (self *Page) setDataFromArgLine(arg string, valfn pageSetDataFunc) {
+	if self.data == nil {
+		self.data = maputil.M(nil)
+	}
+
+	if valfn != nil {
+		var arg = strings.TrimSpace(arg)
+
+		for _, pair := range strings.Split(arg, `;`) {
+			var k, v = stringutil.SplitPairTrimSpace(pair, `=`)
+
+			if k != `` {
+				self.data.Set(k, valfn(self.data, k, v))
+				log.Debugf("set %v=%v", k, v)
+			}
+		}
+	}
+}
+
+func (self *Page) dataMap() map[string]interface{} {
+	if self.data == nil {
+		self.data = maputil.M(nil)
+	}
+
+	return self.data.MapNative()
 }
