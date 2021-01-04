@@ -121,6 +121,10 @@ func (self *Page) syncData() error {
 		self.data = maputil.M(nil)
 	}
 
+	for k, v := range self.deck.DataSources.GetAll() {
+		self.data.Set(k, v)
+	}
+
 	for i, req := range self.DataConfig.Doables() {
 		if out, err := req.Do(self); err == nil {
 			if out != nil {

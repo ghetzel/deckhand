@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	clutch "github.com/ghetzel/dataclutch"
 	"github.com/ghetzel/diecast"
 	"github.com/ghetzel/go-defaults"
 	"github.com/ghetzel/go-stockutil/executil"
@@ -57,17 +58,18 @@ type UpdateDeckRequest struct {
 //  and would run the shell command "/bin/true" when pressed.
 
 type Deck struct {
-	Name     string
-	Page     string            `yaml:"-" default:"default"`
-	Pages    map[string]*Page  `yaml:"pages"`
-	Rows     int               `yaml:"rows"`
-	Cols     int               `yaml:"cols"`
-	Helpers  map[string]string `yaml:"helpers"`
-	Icons    map[string]Button `yaml:"icons"`
-	Count    int               `yaml:"-"`
-	device   *streamdeck.Device
-	watcher  *watcher.Watcher
-	filename string
+	Name        string
+	Page        string            `yaml:"-" default:"default"`
+	Pages       map[string]*Page  `yaml:"pages"`
+	Rows        int               `yaml:"rows"`
+	Cols        int               `yaml:"cols"`
+	Helpers     map[string]string `yaml:"helpers"`
+	Icons       map[string]Button `yaml:"icons"`
+	DataSources clutch.Store      `yaml:"data"`
+	Count       int               `yaml:"-"`
+	device      *streamdeck.Device
+	watcher     *watcher.Watcher
+	filename    string
 }
 
 func LoadDeck(filename string) (*Deck, error) {
@@ -150,6 +152,10 @@ func (self *Deck) Sync() error {
 	}
 
 	defaults.SetDefaults(self)
+
+	if err := self.DataSources.Refresh(); err != nil {
+		return err
+	}
 
 	for name, pg := range self.Pages {
 		pg.deck = self
