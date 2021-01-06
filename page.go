@@ -8,53 +8,22 @@ import (
 	"strings"
 	"time"
 
+	clutch "github.com/ghetzel/dataclutch"
 	"github.com/ghetzel/diecast"
 	"github.com/ghetzel/go-defaults"
 	"github.com/ghetzel/go-stockutil/executil"
 	"github.com/ghetzel/go-stockutil/fileutil"
 	"github.com/ghetzel/go-stockutil/log"
 	"github.com/ghetzel/go-stockutil/maputil"
-	"github.com/ghetzel/go-stockutil/sliceutil"
 	"github.com/ghetzel/go-stockutil/stringutil"
 	"github.com/ghetzel/go-stockutil/typeutil"
 )
 
 type pageSetDataFunc func(m *maputil.Map, key string, value string) interface{}
 
-type Doable interface {
-	Do(*Page) (interface{}, error)
-	Key() string
-}
-
-type DataConfig struct {
-	HTTP    []*HttpConfig    `yaml:"http"`
-	Exec    []*ShellConfig   `yaml:"exec"`
-	Literal []*LiteralConfig `yaml:"literal"`
-}
-
-func (self *DataConfig) Doables() (out []Doable) {
-	for _, hc := range self.HTTP {
-		var v interface{} = hc
-
-		if d, ok := v.(Doable); ok {
-			out = append(out, d)
-		}
-	}
-
-	for _, sc := range self.Exec {
-		var v interface{} = sc
-
-		if d, ok := v.(Doable); ok {
-			out = append(out, d)
-		}
-	}
-
-	return
-}
-
 type Page struct {
 	Name         string          `yaml:"-"`
-	DataConfig   DataConfig      `yaml:"data"`
+	DataSources  clutch.Store    `yaml:"data"`
 	Buttons      map[int]*Button `yaml:"buttons"`
 	Defaults     *Button         `yaml:"defaults"`
 	Helper       string          `yaml:"helper"`
@@ -125,16 +94,8 @@ func (self *Page) syncData() error {
 		self.data.Set(k, v)
 	}
 
-	for i, req := range self.DataConfig.Doables() {
-		if out, err := req.Do(self); err == nil {
-			if out != nil {
-				var key = sliceutil.OrString(req.Key(), fmt.Sprintf("data%d", i))
-
-				self.data.Set(key, out)
-			}
-		} else {
-			return fmt.Errorf("request %d: %v", i, err)
-		}
+	for k, v := range self.DataSources.GetAll() {
+		self.data.Set(k, v)
 	}
 
 	return nil
@@ -299,6 +260,18 @@ func (self *Page) Sync() error {
 		return fmt.Errorf("cannot sync page: no deck specified")
 	} else if len(self.Buttons) == 0 {
 		self.Buttons = make(map[int]*Button)
+	}
+
+	if self.lastSyncedAt.IsZero() {
+		self.syncData()
+	}
+
+	self.DataSources.OnChange = func(keys []string) {
+		self.syncData()
+	}
+
+	if err := self.DataSources.Refresh(); err != nil {
+		return fmt.Errorf("page %v: %v", self.Name, err)
 	}
 
 	if err := self.RunHelper(); err != nil {

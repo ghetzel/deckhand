@@ -162,6 +162,10 @@ func (self *Deck) Sync() error {
 		pg.Name = name
 
 		if pg.Name == self.Page {
+			// if cur := self.CurrentPage(); pg.Name != cur.Name {
+			// 	cur.DataSources.Close()
+			// }
+
 			self.Clear()
 
 			if err := pg.Sync(); err != nil {

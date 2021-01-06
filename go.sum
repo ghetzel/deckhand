@@ -187,14 +187,12 @@ github.com/ghetzel/canvas v0.0.0-20210104211054-1e57a21026a1/go.mod h1:tSoDF7XWQ
 github.com/ghetzel/cli v1.16.0/go.mod h1:Q+8sg5kp2RtKNJH7orf5ntfal6ol+XPGCYyRd5dEJm8=
 github.com/ghetzel/cli v1.17.0 h1:gMbJBrjPMz7JRsYrcV7sK60HCqQxwI/xO8dEjP6Z1yk=
 github.com/ghetzel/cli v1.17.0/go.mod h1:Q+8sg5kp2RtKNJH7orf5ntfal6ol+XPGCYyRd5dEJm8=
-github.com/ghetzel/dataclutch v0.0.2 h1:KeNJOtWf9VqhKWVOirUe8mQQ1kpgyyCK75lB3EVQfqE=
-github.com/ghetzel/dataclutch v0.0.2/go.mod h1:WOJ45tEF7Ekjh0WmNahuptKLIxIsa4nRSAKv0rb/cIc=
 github.com/ghetzel/diecast v0.0.0-20180404162638-0eeab4621f46/go.mod h1:swOXR3uO0wnxwnxOkB5L9tavFkSAMLGZdXYYkkvZRks=
 github.com/ghetzel/diecast v1.9.15/go.mod h1:XQ2W1E2vb9H5n0fagF7Ti4AiAVmqq8E3DoNVziO6k5c=
 github.com/ghetzel/diecast v1.13.10/go.mod h1:h9Mri+vMxBaCfK1J241NLCOWFi0uf7MWHN4v7C68Ylg=
 github.com/ghetzel/diecast v1.17.14/go.mod h1:2IFT0FtoKxdcaxU4ti+yDGmN/AukQp1Uj8yZNBQ3hHY=
-github.com/ghetzel/diecast v1.19.7 h1:IzxChbNPeA8awM6fuCV6psLdEkxdh4Y8eVNP9zSAZBI=
-github.com/ghetzel/diecast v1.19.7/go.mod h1:haui5vfJcEy5blYWFi0x5jcZivLdrOKGa9MY/lYPxjg=
+github.com/ghetzel/diecast v1.19.19 h1:OF5UhBiZzC6MfHwq2mkWEJ/YqcBBlT10K33OikZojYk=
+github.com/ghetzel/diecast v1.19.19/go.mod h1:jt4RrRizGYoX5g4m+bDf0d7T1Xva3c6fp8x9TnKz05Y=
 github.com/ghetzel/friendscript v0.5.0/go.mod h1:GZJ2FZRpgvURp4hUb/AdevNCnHKCWRpKLxtAl817F4g=
 github.com/ghetzel/friendscript v0.5.5/go.mod h1:zYqGAS3vGMxM912/T9GP1S62VP+AXssMDv9dPzO0Ph0=
 github.com/ghetzel/friendscript v0.6.6 h1:jpi8zy2luueXYmEJg1sKUtzNW1Cjk4FvQ8QXuGLRaUE=
@@ -207,9 +205,8 @@ github.com/ghetzel/go-stockutil v1.8.3/go.mod h1:zHk/p1VcoQbWngvmelsQbFbZ6eIQDA4
 github.com/ghetzel/go-stockutil v1.8.4/go.mod h1:tq1ycYqlC1z9ZX/Pvgz+sePJvpHsJbd692w8936ed+U=
 github.com/ghetzel/go-stockutil v1.8.42/go.mod h1:Upalidr5qSOijbhYb6yED2X2rDoFFFVhl2z0H/hyCmw=
 github.com/ghetzel/go-stockutil v1.8.53/go.mod h1:Upalidr5qSOijbhYb6yED2X2rDoFFFVhl2z0H/hyCmw=
-github.com/ghetzel/go-stockutil v1.8.83/go.mod h1:pVa9I7cYVgQV052hr6Z4OOBOYfOMKsm+aLIWMGMciO4=
-github.com/ghetzel/go-stockutil v1.9.1 h1:U9FCc3FW5Amc5emVs14/7+1iJ1OBf37IWHm9U8ffqaQ=
-github.com/ghetzel/go-stockutil v1.9.1/go.mod h1:PVGYk+2+gCehz5yO81tG95Mv60JXP1h+7QBw0NM56HY=
+github.com/ghetzel/go-stockutil v1.9.4 h1:xM1Q2ZJ0GJXtN1KtKWMKCUpPuW75ShHRDTObp5Kai14=
+github.com/ghetzel/go-stockutil v1.9.4/go.mod h1:1kTcitSiQsN73l6Ws7nZOyo+vs8EKmIAp0CSOrqTet0=
 github.com/ghetzel/go-webfriend v0.9.23/go.mod h1:4tjKFGdCtac9eXJ8Hz48DSCoiwjhzynwFFiyhsLfMnI=
 github.com/ghetzel/go-webfriend v0.9.40/go.mod h1:RDBxcAknpDWMJFOKS9AFiNldv+R6siUKFB4DDv+BGRI=
 github.com/ghetzel/go-webfriend v0.9.60 h1:all/aCdFxqUd1NEeCtaFYrU14+WKLDatxFR2B49R/gw=
@@ -1190,6 +1187,8 @@ honnef.co/go/tools v0.0.1-2020.1.3/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9
 honnef.co/go/tools v0.0.1-2020.1.4/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
 k8s.io/apimachinery v0.18.6 h1:RtFHnfGNfd1N0LeSrKCUznz5xtUP1elRGvHJbL3Ntag=
 k8s.io/apimachinery v0.18.6/go.mod h1:OaXp26zu/5J7p0f92ASynJa1pZo06YlV9fG7BoWbCko=
+k8s.io/client-go v11.0.0+incompatible h1:LBbX2+lOwY9flffWlJM7f1Ct8V2SRNiMRDFeiwnJo9o=
+k8s.io/client-go v11.0.0+incompatible/go.mod h1:7vJpHMYJwNQCWgzmNV+VYUl1zCObLyodBc8nIyt8L5s=
 k8s.io/gengo v0.0.0-20190128074634-0689ccc1d7d6/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
 k8s.io/klog v0.0.0-20181102134211-b9b56d5dfc92/go.mod h1:Gq+BEi5rUBO/HRz0bTSXDUcqjScdoY3a9IHpCEIOOfk=
 k8s.io/klog v1.0.0/go.mod h1:4Bi6QPql/J/LkTDqv7R/cd3hPo4k2DG6Ptcz060Ez5I=
