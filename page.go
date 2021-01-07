@@ -266,10 +266,6 @@ func (self *Page) Sync() error {
 		self.syncData()
 	}
 
-	self.DataSources.OnChange = func(keys []string) {
-		self.syncData()
-	}
-
 	if err := self.DataSources.Refresh(); err != nil {
 		return fmt.Errorf("page %v: %v", self.Name, err)
 	}

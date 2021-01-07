@@ -166,11 +166,12 @@ func (self *Deck) Sync() error {
 			// 	cur.DataSources.Close()
 			// }
 
-			self.Clear()
-
 			if err := pg.Sync(); err != nil {
 				return fmt.Errorf("page %v: %v", name, err)
 			}
+
+			self.Clear()
+			break
 		}
 	}
 
