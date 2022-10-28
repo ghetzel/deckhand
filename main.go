@@ -14,7 +14,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = `deckhand`
 	app.Usage = `A utility for managing and operating the Elgato Stream Deck series of input devices.`
-	app.Version = `0.0.4`
+	app.Version = `0.0.5`
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{

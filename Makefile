@@ -20,10 +20,10 @@ test: fmt deps
 	go test $(PKGS)
 
 $(DECKHAND_BIN):
-	go build --ldflags '-extldflags "-static"' -ldflags '-s' -o $(DECKHAND_BIN) *.go
-	@which ud       > /dev/null && ud stop deckhand || true
-	@which deckhand > /dev/null && cp -v $(DECKHAND_BIN) $(shell which deckhand)
-	@which ud       > /dev/null && ud start deckhand || true
+	go build -o $(DECKHAND_BIN) *.go
+#	@which ud       > /dev/null && ud stop deckhand || true
+#	@which deckhand > /dev/null && cp -v $(DECKHAND_BIN) $(shell which deckhand)
+#	@which ud       > /dev/null && ud start deckhand || true
 
 build: $(DECKHAND_BIN)
 

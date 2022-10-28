@@ -8,15 +8,15 @@ import (
 	"strings"
 	"time"
 
-	clutch "github.com/ghetzel/dataclutch"
+	"github.com/ghetzel/deckhand/clutch"
 	"github.com/ghetzel/diecast"
-	"github.com/ghetzel/go-defaults"
 	"github.com/ghetzel/go-stockutil/executil"
 	"github.com/ghetzel/go-stockutil/fileutil"
 	"github.com/ghetzel/go-stockutil/log"
 	"github.com/ghetzel/go-stockutil/maputil"
 	"github.com/ghetzel/go-stockutil/stringutil"
 	"github.com/ghetzel/go-stockutil/typeutil"
+	"github.com/mcuadros/go-defaults"
 )
 
 type pageSetDataFunc func(m *maputil.Map, key string, value string) interface{}
@@ -301,24 +301,26 @@ func (self *Page) trigger(i int) error {
 }
 
 func (self *Page) dump() {
-	for kv := range maputil.M(self.Buttons).Iter(maputil.IterOptions{
-		SortKeys: true,
-	}) {
-		if btn, ok := kv.Value.(*Button); ok {
-			log.Debugf(
-				"page[%v,%02s]: fill=%v color=%v font=%v:%v state=%v text=%v data=%+v",
-				self.Name,
-				kv.Key,
-				btn._property(`fill`),
-				btn._property(`color`),
-				btn._property(`fontName`),
-				btn._property(`fontSize`),
-				btn._property(`state`),
-				btn._property(`text`),
-				strings.Join(maputil.StringKeys(self.data), `,`),
-			)
-		}
-	}
+	return
+
+	// for kv := range maputil.M(self.Buttons).Iter(maputil.IterOptions{
+	// 	SortKeys: true,
+	// }) {
+	// 	if btn, ok := kv.Value.(*Button); ok {
+	// 		log.Debugf(
+	// 			"page[%v,%02s]: fill=%v color=%v font=%v:%v state=%v text=%v data=%+v",
+	// 			self.Name,
+	// 			kv.Key,
+	// 			btn._property(`fill`),
+	// 			btn._property(`color`),
+	// 			btn._property(`fontName`),
+	// 			btn._property(`fontSize`),
+	// 			btn._property(`state`),
+	// 			btn._property(`text`),
+	// 			strings.Join(maputil.StringKeys(self.data), `,`),
+	// 		)
+	// 	}
+	// }
 }
 
 func (self *Page) eval(dcTemplate string) (typeutil.Variant, error) {

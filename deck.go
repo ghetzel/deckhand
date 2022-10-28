@@ -10,9 +10,8 @@ import (
 	"strings"
 	"time"
 
-	clutch "github.com/ghetzel/dataclutch"
+	"github.com/ghetzel/deckhand/clutch"
 	"github.com/ghetzel/diecast"
-	"github.com/ghetzel/go-defaults"
 	"github.com/ghetzel/go-stockutil/executil"
 	"github.com/ghetzel/go-stockutil/fileutil"
 	"github.com/ghetzel/go-stockutil/httputil"
@@ -20,6 +19,7 @@ import (
 	"github.com/ghetzel/go-stockutil/maputil"
 	"github.com/ghetzel/sysfact"
 	streamdeck "github.com/magicmonkey/go-streamdeck"
+	"github.com/mcuadros/go-defaults"
 	"github.com/radovskyb/watcher"
 	"gopkg.in/yaml.v2"
 )

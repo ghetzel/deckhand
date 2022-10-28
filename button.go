@@ -12,16 +12,18 @@ import (
 	"sync"
 
 	"github.com/ghetzel/diecast"
-	"github.com/ghetzel/go-defaults"
 	"github.com/ghetzel/go-stockutil/colorutil"
 	"github.com/ghetzel/go-stockutil/executil"
 	"github.com/ghetzel/go-stockutil/fileutil"
+	"github.com/ghetzel/go-stockutil/httputil"
 	"github.com/ghetzel/go-stockutil/log"
 	"github.com/ghetzel/go-stockutil/maputil"
+	"github.com/ghetzel/go-stockutil/rxutil"
 	"github.com/ghetzel/go-stockutil/stringutil"
 	"github.com/ghetzel/go-stockutil/typeutil"
+	"github.com/mcuadros/go-defaults"
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/rasterizer"
+	"github.com/tdewolff/canvas/renderers/rasterizer"
 )
 
 // Specifies a symbolic mapping between text lines in the per-button
@@ -96,6 +98,7 @@ type Button struct {
 	Action        string             `yaml:"action"`
 	State         string             `yaml:"state"`
 	States        map[string]*Button `yaml:"states"`
+	Layers        []*Button          `yaml:"layers"`
 	// Visible           string             `yaml:"visible"`
 	auto              bool
 	sticky            bool
@@ -335,7 +338,11 @@ func (self *Button) regen() {
 	ctx.DrawPath(
 		0,
 		0,
-		canvas.RoundedRectangle(self.visualArena.W, self.visualArena.H, self.visualArena.H*0.2),
+		canvas.RoundedRectangle(
+			self.visualArena.W,
+			self.visualArena.H,
+			self.visualArena.H*0.2,
+		),
 	)
 
 	if img := self.image; img != nil {
@@ -414,7 +421,11 @@ func (self *Button) SetImage(filename string) error {
 func (self *Button) RenderTo(w io.Writer) error {
 	self.regen()
 
-	if rendered := rasterizer.Draw(self.visualArena, 1); rendered != nil {
+	if rendered := rasterizer.Draw(
+		self.visualArena,
+		canvas.DPI(72),
+		canvas.DefaultColorSpace,
+	); rendered != nil {
 		return png.Encode(w, rendered)
 	}
 
@@ -428,7 +439,11 @@ func (self *Button) Render() error {
 
 	self.regen()
 
-	if rendered := rasterizer.Draw(self.visualArena, 1); rendered != nil {
+	if rendered := rasterizer.Draw(
+		self.visualArena,
+		canvas.DPI(72),
+		canvas.DefaultColorSpace,
+	); rendered != nil {
 		if err := self.page.deck.device.WriteRawImageToButton(self.Index-1, rendered); err != nil {
 			return err
 		}
@@ -489,6 +504,28 @@ func (self *Button) Trigger() error {
 
 				if pg := self.page.deck.CurrentPage(); pg != nil {
 					pg.setDataFromArgLine(rest, autotypePageData)
+				}
+			case `http`:
+				var httpargs = rxutil.Split(`\s+`, arg)
+
+				if len(httpargs) < 2 {
+					terr = fmt.Errorf("usage: http:method url")
+				} else {
+					var method string = strings.ToUpper(httpargs[0])
+
+					if client, err := httputil.NewClient(httpargs[1]); err == nil {
+						if _, err := client.Request(
+							httputil.Method(method),
+							``,
+							nil,
+							nil,
+							nil,
+						); err != nil {
+							terr = err
+						}
+					} else {
+						terr = err
+					}
 				}
 
 			case `state`:
