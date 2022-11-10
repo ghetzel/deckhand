@@ -97,6 +97,7 @@ type Button struct {
 	Maximum       string             `yaml:"maximum"`
 	Action        string             `yaml:"action"`
 	State         string             `yaml:"state"`
+	Cycle         []string           `yaml:"cycle"`
 	States        map[string]*Button `yaml:"states"`
 	Layers        []*Button          `yaml:"layers"`
 	// Visible           string             `yaml:"visible"`
@@ -114,6 +115,7 @@ type Button struct {
 	evaluatedColor    string
 	evaluatedFill     string
 	evaluatedFontSize float64
+	currentCycleIndex int
 	image             image.Image
 	page              *Page
 	visualArena       *canvas.Canvas
@@ -505,6 +507,7 @@ func (self *Button) Trigger() error {
 				if pg := self.page.deck.CurrentPage(); pg != nil {
 					pg.setDataFromArgLine(rest, autotypePageData)
 				}
+
 			case `http`:
 				var httpargs = rxutil.Split(`\s+`, arg)
 
@@ -531,6 +534,13 @@ func (self *Button) Trigger() error {
 			case `state`:
 				self.overrideState = arg
 				terr = self.Sync()
+
+			case `cycle`:
+				if self.currentCycleIndex < len(self.Cycle) {
+					self.overrideState = self.Cycle[self.currentCycleIndex]
+					self.currentCycleIndex = (self.currentCycleIndex + 1) % len(self.Cycle)
+					terr = self.Sync()
+				}
 
 			case `cleardata`:
 				self.page.data = maputil.M(nil)
